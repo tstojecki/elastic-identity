@@ -55,7 +55,7 @@ namespace Bmbsqd.ElasticIdentity
 	{
 		private readonly Lazy<Task<IElasticClient>> _connection;
 
-		private static IElasticClient CreateClient( Uri connectionString, string indexName, string entityName )
+		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName, string entityName )
 		{
 			var settings = new ConnectionSettings( connectionString )
 				.SetDefaultIndex( indexName )
@@ -66,7 +66,7 @@ namespace Bmbsqd.ElasticIdentity
 			return new ElasticClient( settings );
 		}
 
-		private async Task SetupIndexAsync( IElasticClient connection, string indexName, string entityName, bool forceCreate )
+		protected virtual async Task SetupIndexAsync( IElasticClient connection, string indexName, string entityName, bool forceCreate )
 		{
 			var exists = Wrap( await connection.IndexExistsAsync( x => x.Index( indexName ) ).ConfigureAwait( false ) ).Exists;
 
@@ -97,7 +97,7 @@ namespace Bmbsqd.ElasticIdentity
 			}
 		}
 
-		private static void AssertIndexCreateSuccess( IIndicesOperationResponse createResponse )
+		protected void AssertIndexCreateSuccess( IIndicesOperationResponse createResponse )
 		{
 			var status = createResponse.ConnectionStatus;
 			if( !status.Success ) {
@@ -127,6 +127,16 @@ namespace Bmbsqd.ElasticIdentity
 				return connection;
 			} );
 		}
+
+        public ElasticUserStore(IElasticClient client, string indexName = "users", string entityName = "user", bool forceRecreate = false)
+        {
+            _connection = new Lazy<Task<IElasticClient>>(async () =>
+           {
+               await SetupIndexAsync(client, indexName, entityName, forceRecreate).ConfigureAwait(false);
+
+               return client;
+           });
+        }
 
 		void IDisposable.Dispose()
 		{

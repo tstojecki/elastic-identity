@@ -47,6 +47,8 @@ namespace Bmbsqd.ElasticIdentity
 			_logins = new List<ElasticUserLoginInfo>();
 			_claims = new HashSet<ElasticClaim>();
 			_roles = new HashSet<string>();
+
+            this.Email = new ElasticUserEmail();
 		}
 
 		public ElasticUser( string userName )
