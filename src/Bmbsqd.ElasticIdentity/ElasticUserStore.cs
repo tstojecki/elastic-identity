@@ -57,55 +57,53 @@ namespace Bmbsqd.ElasticIdentity
 
 		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName, string entityName )
 		{
-			var settings = new ConnectionSettings( connectionString )
-				.SetDefaultIndex( indexName )
-				.MapDefaultTypeIndices( x => x.Add( typeof(TUser), indexName ) )
-				.MapDefaultTypeNames( x => x.Add( typeof(TUser), entityName ) )
-				.DisablePing()
-				.SetJsonSerializerSettingsModifier( s => s.Converters.Add( new ElasticEnumConverter() ) );
-			return new ElasticClient( settings );
-		}
+            var settings = new ConnectionSettings( connectionString )
+                .DisableDirectStreaming( true )       // Bug: https://github.com/elastic/elasticsearch-net/issues/1856
+                .MapDefaultTypeIndices( x => x.Add( typeof ( TUser ), indexName ) )
+                .MapDefaultTypeNames( x => x.Add( typeof ( TUser ), entityName ) )
+                .DisablePing();
+                //.SetJsonSerializerSettingsModifier( s => s.Converters.Add( new ElasticEnumConverter() ) );    // ToDo: What replaces thsi?
+            return new ElasticClient( settings );
+        }
 
 		protected virtual async Task SetupIndexAsync( IElasticClient connection, string indexName, string entityName, bool forceCreate )
 		{
-			var exists = Wrap( await connection.IndexExistsAsync( x => x.Index( indexName ) ).ConfigureAwait( false ) ).Exists;
+            var exists = Wrap( await connection.IndexExistsAsync( new IndexExistsRequest( indexName ) ).ConfigureAwait( false ) ).Exists;
 
-			if( exists && forceCreate ) {
-				Wrap( await connection.DeleteIndexAsync( x => x.Index( indexName ) ).ConfigureAwait( false ) );
-				exists = false;
-			}
+            if ( exists && forceCreate ) {
+                Wrap( await connection.DeleteIndexAsync( new DeleteIndexRequest( indexName ) ).ConfigureAwait( false ) );
+                exists = false;
+            }
 
-			if( !exists ) {
-				var createResponse = Wrap( await connection.CreateIndexAsync( createIndexDescriptor => createIndexDescriptor
-					.Index( indexName )
-					.Analysis( a => a
-						.Analyzers( x => x.Add( "lowercaseKeyword", new CustomAnalyzer {
-							Tokenizer = "keyword",
-							Filter = new[] {"standard", "lowercase"}
-						} ) )
-					)
-					.AddMapping<TUser>( m => m
-						.MapFromAttributes()
-						.IncludeInAll( false )
-						.IdField( x => x.Path( "id" ) )
-						.Type( entityName )
-					)
-					).ConfigureAwait( false ) );
+            if ( !exists ) {
+                var createResponse = Wrap( await connection.CreateIndexAsync( indexName, desc => desc
+                    .Settings( s => s
+                        .Analysis( a => a
+                            .Analyzers( aa => aa
+                                .Custom( "lowercaseKeyword", c => c
+                                    .Tokenizer( "keyword" )
+                                    .Filters( "standard", "lowercase" ) ) )
+                        )
+                    )
+                    .Mappings( m => m
+                        .Map<TUser>( mm => mm
+                            .AutoMap()
+                            .AllField( af => af
+                                .Enabled( false ) ) ) ) )
+                    .ConfigureAwait( false ) );
 
-				AssertIndexCreateSuccess( createResponse );
-				await SeedAsync().ConfigureAwait( false );
-			}
-		}
+                AssertIndexCreateSuccess( createResponse );
+                await SeedAsync().ConfigureAwait( false );
+            }
+        }
 
-		protected void AssertIndexCreateSuccess( IIndicesOperationResponse createResponse )
+		protected void AssertIndexCreateSuccess( IResponse createResponse )
 		{
-			var status = createResponse.ConnectionStatus;
-			if( !status.Success ) {
-				if( status.OriginalException != null ) {
-					throw status.OriginalException;
-				}
-				throw new ApplicationException( "Error while creating index, " + Encoding.UTF8.GetString( status.ResponseRaw ) );
-			}
+		    if ( createResponse.ApiCall.Success ) return;
+		    if ( createResponse.OriginalException != null ) { 
+		        throw createResponse.OriginalException;
+		    }
+		    throw new ApplicationException( $"Error while creating index:\n{createResponse.DebugInformation}" );
 		}
 
 		public ElasticUserStore( Uri connectionString, string indexName = "users", string entityName = "user", bool forceRecreate = false )
@@ -176,40 +174,88 @@ namespace Bmbsqd.ElasticIdentity
 
 		public async Task DeleteAsync( TUser user )
 		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var connection = await Connection;
-			Wrap( await connection.DeleteAsync<TUser>( d => d
-				.Id( user.Id )
-				.Refresh() ) );
-		}
+            if ( user == null ) throw new ArgumentNullException( nameof( user ) );
+            var connection = await Connection;
+            Wrap( await connection.DeleteAsync( DocumentPath<TUser>.Id( user.Id ), d => d
+                .Consistency( Consistency.Quorum )
+                .Version( user.Version )
+                .Refresh() ) );
+        }
 
 		public async Task<TUser> FindByIdAsync( string userId )
 		{
-			if( userId == null ) throw new ArgumentNullException( "userId" );
-			var connection = await Connection;
-			var result = Wrap( await connection.GetAsync<TUser>( x => x.Id( userId ) ) );
-			return result.Source;
-		}
+            if ( userId == null ) throw new ArgumentNullException( nameof( userId ) );
+            var connection = await Connection;
+            var result = Wrap( await connection.GetAsync( DocumentPath<TUser>.Id( userId ) ) );
+
+            if ( !result.IsValid || !result.Found )
+                return null;
+
+            var r = result.Source;
+            r.Version = result.Version;
+            r.Id = result.Id;
+            return r;
+        }
 
 		public async Task<TUser> FindByNameAsync( string userName )
 		{
-			if( userName == null ) throw new ArgumentNullException( "userName" );
-			var connection = await Connection;
-			var result = Wrap( await connection.SearchAsync<TUser>( search => search.Filter( filter => filter.Term( user => user.UserName, UserNameUtils.FormatUserName( userName ) ) ) ) );
-			return result.Documents.FirstOrDefault();
-		}
+            if ( userName == null ) throw new ArgumentNullException( nameof( userName ) );
+            var connection = await Connection;
+            var result = Wrap( await connection.SearchAsync<TUser>( s => s
+                .Version( true )      // Bug: This is default, but we only get version if we set this. Need to file.
+                .Query( q => q
+                    .Bool( b => b
+                        .Filter( f => f
+                            .Term( t => t
+                                .Field( tf => tf.UserName )
+                                .Value( UserNameUtils.FormatUserName( userName ) ) ) ) ) ) ) );
+
+            if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
+                return null;
+
+            var r = result.Documents.FirstOrDefault();
+
+            if ( r == null )
+                return null;
+
+            // ToDo: Fix these
+            // ReSharper disable once PossibleNullReferenceException
+            // ReSharper disable once PossibleInvalidOperationException
+            r.Version = result.Hits.FirstOrDefault().Version.Value;
+            r.Id = result.Hits.FirstOrDefault()?.Id;
+
+            return r;
+        }
 
 		public async Task<TUser> FindByEmailAsync( string email )
 		{
-			if( email == null ) throw new ArgumentNullException( "email" );
-			var connection = await Connection;
-			var result = Wrap( await connection.SearchAsync<TUser>(
-				search => search
-					.Filter( filter => filter
-						.Term( user => user.Email.Address, email ) )
-				) );
-			return result.Documents.FirstOrDefault();
-		}
+            if ( email == null ) throw new ArgumentNullException( nameof( email ) );
+            var connection = await Connection;
+            var result = Wrap( await connection.SearchAsync<TUser>( s => s
+                .Version( true )      // Bug: This is default, but we only get version if we set this. Need to file.
+                .Query( q => q
+                    .Bool( b => b
+                        .Filter( f => f
+                            .Term( t => t
+                                .Field( tf => tf.Email.Address )
+                                .Value( email ) ) ) ) ) ) );
+
+            if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
+                return null;
+
+            var r = result.Documents.FirstOrDefault();
+
+            if (r == null )
+                return null;
+
+            // ToDo: Fix these
+            // ReSharper disable once PossibleNullReferenceException
+            // ReSharper disable once PossibleInvalidOperationException
+            r.Version = result.Hits.FirstOrDefault().Version.Value;
+            r.Id = result.Hits.FirstOrDefault()?.Id;
+
+            return r;
+        }
 
 		public Task AddLoginAsync( TUser user, UserLoginInfo login )
 		{
@@ -242,20 +288,35 @@ namespace Bmbsqd.ElasticIdentity
 
 		public async Task<TUser> FindAsync( UserLoginInfo login )
 		{
-			if( login == null ) throw new ArgumentNullException( "login" );
-			var connection = await Connection;
-			var result = Wrap( await connection.SearchAsync<TUser>(
-				search => search
-					.Filter( filter => filter
-						.Bool( b => b
-							.Must(
-								m => m.Term( user => user.Logins[0].ProviderKey, login.ProviderKey ),
-								m => m.Term( user => user.Logins[0].LoginProvider, login.LoginProvider )
-							) )
-					) )
-				);
-			return result.Documents.FirstOrDefault();
-		}
+            if ( login == null ) throw new ArgumentNullException( nameof( login ) );
+            var connection = await Connection;
+            var result = Wrap( await connection.SearchAsync<TUser>( s => s
+                .Query( q => q
+                    .Bool( b => b
+                        .Filter( f1 => f1
+                            .Term( t1 => t1
+                                .Field( tf1 => tf1.Logins[0].ProviderKey )
+                                .Value( login.ProviderKey ) ) )
+                        .Filter( f2 => f2
+                            .Term( t2 => t2
+                                .Field( tf2 => tf2.Logins[0].LoginProvider )
+                                .Value( login.LoginProvider ) ) ) ) ) ) );
+            // ToDo: Verify the query above, use containers?
+            if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
+                return null;
+
+            var r = result.Documents.FirstOrDefault();
+
+            if ( r == null )
+                return null;
+
+            // ToDo: Fix these
+            // ReSharper disable once PossibleNullReferenceException
+            // ReSharper disable once PossibleInvalidOperationException
+            r.Version = result.Hits.FirstOrDefault().Version.Value;
+            r.Id = result.Hits.FirstOrDefault()?.Id;
+            return r;
+        }
 
 		public Task<IList<Claim>> GetClaimsAsync( TUser user )
 		{
@@ -347,10 +408,13 @@ namespace Bmbsqd.ElasticIdentity
 
 		public async Task<IEnumerable<TUser>> GetAllAsync()
 		{
-			var connection = await Connection;
-			var result = Wrap( await connection.SearchAsync<TUser>( search => search.MatchAll().Size( DefaultSizeForAll ) ) );
-			return result.Documents;
-		}
+            // ToDo: Use scroll -> https://goo.gl/E86ezB
+            // Due to the nature Elasticsearch allocates memory on the JVM heap for use in storing the results
+            // you should not set the size to a very large value. Relying on the default size of 10 for now.
+            var connection = await Connection;
+            var result = Wrap( await connection.SearchAsync<TUser>( search => search.MatchAll() ) );
+            return result.Documents;
+        }
 
 		public Task SetTwoFactorEnabledAsync( TUser user, bool enabled )
 		{
@@ -448,24 +512,20 @@ namespace Bmbsqd.ElasticIdentity
 	{
 		protected static readonly Task DoneTask = Task.FromResult( true );
 		protected const int DefaultSizeForAll = 1000*1000;
-		protected static readonly Regex _nameValidationRegex = new Regex( "^[a-z0-9-_]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant );
+
+	    protected static readonly Regex _nameValidationRegex = new Regex( "^[\\[\\]a-z0-9-_\\.]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled );
 		public event EventHandler<ElasticUserStoreTraceEventArgs> Trace;
 
-		protected virtual void OnTrace( string operation, IElasticsearchResponse response )
+		protected virtual void OnTrace( IApiCallDetails callDetails )
 		{
 			var trace = Trace;
-			if( trace != null ) {
-				trace( this, new ElasticUserStoreTraceEventArgs( operation,
-					response.RequestUrl,
-					Encoding.UTF8.GetString( response.Request ),
-					Encoding.UTF8.GetString( response.ResponseRaw ) ) );
-			}
-		}
+            trace?.Invoke( this, new ElasticUserStoreTraceEventArgs( callDetails.DebugInformation ) );
+        }
 
-		protected T Wrap<T>( T result, [CallerMemberName] string operation = "" ) where T : IResponse
+		protected T Wrap<T>( T result ) where T : IResponse
 		{
-			var c = result.ConnectionStatus;
-			OnTrace( operation, c );
+			var c = result.ApiCall;
+			OnTrace( c );
 			return result;
 		}
 	}

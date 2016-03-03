@@ -12,13 +12,12 @@ namespace Bmbsqd.ElasticIdentity.Tests
 
 		private IElasticClient _client;
 
-		protected IElasticClient Client
-		{
-			get { return _client ?? (_client = new ElasticClient( new ConnectionSettings( _connectionString, _defaultIndex ) )); }
-		}
+	    protected IElasticClient Client
+	        =>
+	            _client ??
+	            ( _client = new ElasticClient( new ConnectionSettings( _connectionString ) ) );
 
-
-		protected IdentityResult AssertIdentityResult( IdentityResult identityResult )
+        protected IdentityResult AssertIdentityResult( IdentityResult identityResult )
 		{
 			Assert.True( identityResult.Succeeded, "Errors in identity result: {0}", String.Join( ", ", identityResult.Errors ) );
 			return identityResult;

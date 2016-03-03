@@ -26,6 +26,7 @@
 #endregion
 
 using System.Threading.Tasks;
+using Nest;
 using NUnit.Framework;
 
 namespace Bmbsqd.ElasticIdentity.Tests
@@ -43,8 +44,8 @@ namespace Bmbsqd.ElasticIdentity.Tests
 		[TearDown]
 		public async void Done()
 		{
-			await Client.DeleteIndexAsync( i => i.Index( _defaultIndex ) );
-		}
+            await Client.DeleteIndexAsync( new DeleteIndexRequest( _defaultIndex ) );
+        }
 
 		[Test]
 		public async Task CreateUser()

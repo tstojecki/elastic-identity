@@ -37,6 +37,7 @@ namespace Bmbsqd.ElasticIdentity
 	public class ElasticUser : IUser
 	{
 		private string _id;
+	    private long _version;
 		private string _userName;
 		private readonly List<ElasticUserLoginInfo> _logins;
 		private readonly HashSet<ElasticClaim> _claims;
@@ -48,7 +49,7 @@ namespace Bmbsqd.ElasticIdentity
 			_claims = new HashSet<ElasticClaim>();
 			_roles = new HashSet<string>();
 
-            this.Email = new ElasticUserEmail();
+            Email = new ElasticUserEmail();
 		}
 
 		public ElasticUser( string userName )
@@ -57,47 +58,45 @@ namespace Bmbsqd.ElasticIdentity
 			UserName = userName;
 		}
 
-		[ElasticProperty( Analyzer = "lowercaseKeyword", Index = FieldIndexOption.NotAnalyzed )]
+		[JsonIgnore]
 		public virtual string Id
 		{
 			get { return _id ?? (_id = Guid.NewGuid().ToString( "n" )); }
 			set { _id = value; }
 		}
 
-		[ElasticProperty( Analyzer = "lowercaseKeyword", IncludeInAll = false )]
-		public string UserName
+        [JsonIgnore]
+        public long Version
+        {
+            get { return _version.Equals( 0 ) ? _version = 1 : _version; }
+            set { _version = value; }
+        }
+
+        [String( Index = FieldIndexOption.Analyzed, Analyzer = "lowercaseKeyword" )]
+        public string UserName
 		{
 			get { return _userName; }
 			set { _userName = UserNameUtils.FormatUserName( value ); }
 		}
 
-		[ElasticProperty( IncludeInAll = false, Index = FieldIndexOption.NotAnalyzed )]
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
 		public string PasswordHash { get; set; }
 
-		[ElasticProperty( IncludeInAll = false, Index = FieldIndexOption.NotAnalyzed )]
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
 		public string SecurityStamp { get; set; }
 
 		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
-		public List<ElasticUserLoginInfo> Logins
-		{
-			get { return _logins; }
-		}
+		public List<ElasticUserLoginInfo> Logins => _logins;
 
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
-		public ISet<ElasticClaim> Claims
-		{
-			get { return _claims; }
-		}
+	    [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+		public ISet<ElasticClaim> Claims => _claims;
 
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
-		public ISet<string> Roles
-		{
-			get { return _roles; }
-		}
+	    [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+		public ISet<string> Roles => _roles;
 
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+	    [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
 		public ElasticUserEmail Email { get; set; }
 
 		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
@@ -107,15 +106,14 @@ namespace Bmbsqd.ElasticIdentity
 		/// <summary>
 		///     Convenience property
 		/// </summary>
-		[ElasticProperty( OptOut = true )]
 		[JsonIgnore]
 		public string EmailAddress
 		{
-			get { return Email != null ? Email.Address : null; }
+			get { return Email?.Address; }
 		}
 
-		[ElasticProperty( IncludeInAll = false, Index = FieldIndexOption.NotAnalyzed )]
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+        [Boolean( DocValues = true, NullValue = false )]
+        [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
 		[DefaultValue( false )]
 		public bool TwoFactorAuthenticationEnabled { get; set; }
 

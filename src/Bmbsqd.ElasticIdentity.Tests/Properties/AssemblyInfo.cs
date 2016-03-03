@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle( "Bmbsqd.ElasticIdentity.Tests" )]
 [assembly: AssemblyDescription( "" )]
-[assembly: AssemblyConfiguration( "" )]
+[assembly: AssemblyConfiguration( ".NET Framework 4.6+ required." )]
 [assembly: AssemblyCompany( "" )]
 [assembly: AssemblyProduct( "Bmbsqd.ElasticIdentity.Tests" )]
 [assembly: AssemblyCopyright( "Copyright ©  2014" )]
@@ -35,5 +35,5 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
 
-[assembly: AssemblyVersion( "1.0.0.0" )]
-[assembly: AssemblyFileVersion( "1.0.0.0" )]
+[assembly: AssemblyVersion( "2.0.0.0" )]
+[assembly: AssemblyFileVersion( "2.0.0.0" )]

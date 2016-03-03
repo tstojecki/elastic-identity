@@ -38,20 +38,14 @@ namespace Bmbsqd.ElasticIdentity.Tests
 		[Test]
 		public async Task CustomIndexName()
 		{
-			const string indexName = "hello";
-			Assert.False( Client.IndexExists( i => i.Index( indexName ) ).Exists );
-
-			var store  = new ElasticUserStore<ElasticUser>(
-				_connectionString,
-				indexName: indexName,
-				entityName: "world",
-				forceRecreate: true );
-
-			await store.ConnectionSetup();
-
-			Assert.True( Client.IndexExists( i => i.Index( indexName ) ).Exists );
-			Client.DeleteIndex( i => i.Index( indexName ) );
-		}
+            const string indexName = "hello";
+            Assert.False( Client.IndexExists( new IndexExistsRequest( indexName ) ).Exists );
+            // ReSharper disable once ObjectCreationAsStatement
+            new ElasticUserStore<ElasticUser>( _connectionString, indexName, "world", true );
+            Client.CreateIndex( indexName );
+            Assert.True( Client.IndexExists( new IndexExistsRequest( indexName ) ).Exists );
+            Client.DeleteIndex( new DeleteIndexRequest( indexName ) );
+        }
 
 		[Test]
 		public async Task CustomTypeName()
@@ -59,30 +53,21 @@ namespace Bmbsqd.ElasticIdentity.Tests
 			const string indexName = "some-index";
 			const string entityName = "world";
 			try {
-				var userStore = new ElasticUserStore<ElasticUser>(
-					_connectionString,
-					indexName: indexName,
-					entityName: entityName,
-					forceRecreate: true
-					);
+                var userStore = new ElasticUserStore<ElasticUser>( _connectionString, indexName, entityName, true );
+                var user = new ElasticUser { UserName = "elonmusk" };
 
-				var user = new ElasticUser {
-					UserName = "elonmusk"
-				};
+                user.Roles.UnionWith( new[] { "hello" } );
 
-				user.Roles.UnionWith( new[] {"hello"} );
+                var userManager = new UserManager<ElasticUser>( userStore );
+                AssertIdentityResult( await userManager.CreateAsync( user, "some password" ) );
 
-				var userManager = new UserManager<ElasticUser>( userStore );
-				AssertIdentityResult( await userManager.CreateAsync( user, "some password" ) );
-
-
-				var response = Client.Get<ElasticUser>( user.Id, indexName, entityName );
-				Assert.That( response.Source, Is.Not.Null );
-				Assert.That( response.Source.UserName, Is.EqualTo( user.UserName ) );
-			}
+                var response = Client.Get( new DocumentPath<ElasticUser>( user.Id ) );
+                Assert.That( response.Source, Is.Not.Null );
+                Assert.That( response.Source.UserName, Is.EqualTo( user.UserName ) );
+            }
 			finally {
-				Client.DeleteIndex( i => i.Index( indexName ) );
-			}
+                Client.DeleteIndex( new DeleteIndexRequest( indexName ) );
+            }
 		}
 	}
 }

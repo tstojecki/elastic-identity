@@ -28,6 +28,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Nest;
 using Newtonsoft.Json;
 using NUnit.Framework;
 
@@ -117,8 +118,8 @@ namespace Bmbsqd.ElasticIdentity.Tests
 				Assert.That( koenigseggUser.Car, Is.AssignableTo<Koenigsegg>(), "Koenigsegg Car is not Koenigsegg" );
 			}
 			finally {
-				Client.DeleteIndex( i => i.Index( indexName ) );
-			}
+                Client.DeleteIndex( new DeleteIndexRequest( indexName ));
+            }
 		}
 	}
 }
