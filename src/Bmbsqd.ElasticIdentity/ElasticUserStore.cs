@@ -159,8 +159,25 @@ namespace Bmbsqd.ElasticIdentity
 		{
 			if( user == null ) throw new ArgumentNullException( "user" );
 			var connection = await Connection;
-			Wrap( await connection.IndexAsync( user, x => x.Refresh().OpType( create ? OpType.Create : OpType.Index ) ) );
-		}
+
+            // We need to specify op_type as we are generating the ID (guid) in code.
+            // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html
+            // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#operation-type
+            // On versioning.
+            // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#index-versioning
+
+            if ( create )
+                Wrap( await connection.IndexAsync( user, x => x
+                    .OpType( OpType.Create )      // Fail if a document with the ID provided already exists.
+                    .Consistency( Consistency.Quorum )
+                    .Refresh() ) );
+            else
+                Wrap( await connection.IndexAsync( user, x => x
+                    .OpType( OpType.Index )
+                    .Version( user.Version )    // Be sure the document's version hasn't changed.
+                    .Consistency( Consistency.Quorum )
+                    .Refresh() ) );
+        }
 
 		public Task CreateAsync( TUser user )
 		{
