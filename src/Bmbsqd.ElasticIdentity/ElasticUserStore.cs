@@ -55,12 +55,11 @@ namespace Bmbsqd.ElasticIdentity
 	{
 		private readonly Lazy<Task<IElasticClient>> _connection;
 
-		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName, string entityName )
+		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName )
 		{
             var settings = new ConnectionSettings( connectionString )
                 .DisableDirectStreaming( true )       // Bug: https://github.com/elastic/elasticsearch-net/issues/1856
                 .MapDefaultTypeIndices( x => x.Add( typeof ( TUser ), indexName ) )
-                //.MapDefaultTypeNames( x => x.Add( typeof ( TUser ), entityName ) )        // If this is done, then you cannot use custom type names.
                 .MaximumRetries( 3 )
                 .RequestTimeout( new TimeSpan( 0, 0, 30 ) )
                 .MaxRetryTimeout( new TimeSpan( 0, 0, 120 ) )
@@ -70,7 +69,7 @@ namespace Bmbsqd.ElasticIdentity
             return new ElasticClient( settings );
         }
 
-		protected virtual async Task SetupIndexAsync( IElasticClient connection, string indexName, string entityName, bool forceCreate )
+		protected virtual async Task SetupIndexAsync( IElasticClient connection, string indexName, bool forceCreate )
 		{
             var exists = Wrap( await connection.IndexExistsAsync( new IndexExistsRequest( indexName ) ).ConfigureAwait( false ) ).Exists;
 
@@ -110,31 +109,26 @@ namespace Bmbsqd.ElasticIdentity
 		    throw new ApplicationException( $"Error while creating index:\n{createResponse.DebugInformation}" );
 		}
 
-		public ElasticUserStore( Uri connectionString, string indexName = "users", string entityName = "user", bool forceRecreate = false )
+		public ElasticUserStore( Uri connectionString, string indexName = "users", bool forceRecreate = false )
 		{
 			if( connectionString == null ) throw new ArgumentNullException( "connectionString" );
 			if( indexName == null ) throw new ArgumentNullException( "indexName" );
-			if( entityName == null ) throw new ArgumentNullException( "entityName" );
             
 			if( !_indexNameValidationRegex.IsMatch( indexName ) ) {
 				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
 			}
-			if( !_typeNameValidationRegex.IsMatch( entityName ) ) {
-				throw new ArgumentException( "Invalid Characters in entityName, must be all lowercase", "entityName" );
-			}
-
 
 			_connection = new Lazy<Task<IElasticClient>>( async () => {
-				var connection = CreateClient( connectionString, indexName, entityName );
-				await SetupIndexAsync( connection, indexName, entityName, forceRecreate ).ConfigureAwait( false );
+				var connection = CreateClient( connectionString, indexName );
+				await SetupIndexAsync( connection, indexName, forceRecreate ).ConfigureAwait( false );
 				return connection;
 			} );
 		}
 
-        public ElasticUserStore( IElasticClient client, string indexName = "users", string entityName = "user", bool forceRecreate = false )
+        public ElasticUserStore( IElasticClient client, string indexName = "users", bool forceRecreate = false )
         {
             _connection = new Lazy<Task<IElasticClient>>( async () => {
-               await SetupIndexAsync( client, indexName, entityName, forceRecreate ).ConfigureAwait( false );
+               await SetupIndexAsync( client, indexName, forceRecreate ).ConfigureAwait( false );
                return client;
            } );
         }
@@ -535,7 +529,6 @@ namespace Bmbsqd.ElasticIdentity
 		protected const int DefaultSizeForAll = 1000*1000;
 
 	    protected static readonly Regex _indexNameValidationRegex = new Regex( "^[\\[\\]a-z0-9-_\\.]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled );
-        protected static readonly Regex _typeNameValidationRegex = new Regex("^[a-zA-Z0-9-_]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         public event EventHandler<ElasticUserStoreTraceEventArgs> Trace;
 
 		protected virtual void OnTrace( IApiCallDetails callDetails )

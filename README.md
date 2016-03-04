@@ -19,6 +19,7 @@ Revision History
   - Add quorum consistency on all operations sans read/get.
   - Breaking changes:
      - The JSON document representing the user no longer contains the 'id' field in favor of the document's meta value '_id'. The ElasticUser.Id property is still present on the class and will contain the '_id' value. This same principle is used for ElasticUser.Version (via _version).
+	 - Breaking change in constructor; no more type parameter. Rely on the class type instead.
   - Align version with Elasticsearch.
 - 1.0.0-rc2
   - Fixed version problem with NEST dependency  
@@ -130,7 +131,6 @@ Also, check out the options of the ElasticUserStore constructor
 ElasticUserStore( 
 	Uri connectionString,							// where's your elasticsearch. Something like http://localhost:9200/ or http://users.tesla-co.internal/
 	string indexName = "users",						// what index we're storing the users under. Defaults to "users"
-	string entityName = "user",						// type name for each user. Defaults to "user"
 	bool forceRecreate = false						// if index exists, drop it before creating it again.
 	 )
 
