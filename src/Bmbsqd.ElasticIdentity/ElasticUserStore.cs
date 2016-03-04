@@ -310,18 +310,19 @@ namespace Bmbsqd.ElasticIdentity
 		{
             if ( login == null ) throw new ArgumentNullException( nameof( login ) );
             var connection = await Connection;
-            var result = Wrap( await connection.SearchAsync<TUser>( s => s
-                .Query( q => q
-                    .Bool( b => b
-                        .Filter( f1 => f1
-                            .Term( t1 => t1
-                                .Field( tf1 => tf1.Logins.First().ProviderKey )
-                                .Value( login.ProviderKey ) ) )
-                        .Filter( f2 => f2
-                            .Term( t2 => t2
-                                .Field( tf2 => tf2.Logins.First().LoginProvider )
-                                .Value( login.LoginProvider ) ) ) ) ) ) );
-            // ToDo: Verify the query above, use containers?
+            // ToDo: Create test for this.
+		    var result = Wrap( await connection.SearchAsync<TUser>( s => s
+		        .Query( q => q
+		            .Bool( b => b
+		                .Filter( f =>
+		                    f.Term( t1 => t1
+		                        .Field( tf1 => tf1.Logins.First().LoginProvider)
+		                        .Value( login.LoginProvider) )
+		                    &&
+		                    f.Term( t2 => t2
+		                        .Field( tf2 => tf2.Logins.First().ProviderKey)
+		                        .Value( login.ProviderKey) ) ) ) ) ) );
+
             if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
                 return null;
 
