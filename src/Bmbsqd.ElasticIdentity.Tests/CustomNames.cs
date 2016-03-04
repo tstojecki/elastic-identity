@@ -38,30 +38,30 @@ namespace Bmbsqd.ElasticIdentity.Tests
 		[Test]
 		public async Task CustomIndexName()
 		{
-            const string indexName = "hello";
+            // ToDo: Redundant?
+            const string indexName = "custom-index";
             Assert.False( Client.IndexExists( new IndexExistsRequest( indexName ) ).Exists );
             // ReSharper disable once ObjectCreationAsStatement
-            new ElasticUserStore<ElasticUser>( _connectionString, indexName, "world", true );
+            new ElasticUserStore<ElasticUser>( _connectionString, indexName, forceRecreate: true );
             Client.CreateIndex( indexName );
             Assert.True( Client.IndexExists( new IndexExistsRequest( indexName ) ).Exists );
             Client.DeleteIndex( new DeleteIndexRequest( indexName ) );
         }
 
 		[Test]
-		public async Task CustomTypeName()
+		public async Task CustomIndexAndTypeName()
 		{
-			const string indexName = "some-index";
-			const string entityName = "world";
-			try {
-                var userStore = new ElasticUserStore<ElasticUser>( _connectionString, indexName, entityName, true );
-                var user = new ElasticUser { UserName = "elonmusk" };
+			const string indexName = "custom-index";
+            try {
+                var userStore = new ElasticUserStore<CustomUser>( _connectionString, indexName, forceRecreate: true );
+                var user = new CustomUser { UserName = "elonmusk" };
 
                 user.Roles.UnionWith( new[] { "hello" } );
 
-                var userManager = new UserManager<ElasticUser>( userStore );
+                var userManager = new UserManager<CustomUser>( userStore );
                 AssertIdentityResult( await userManager.CreateAsync( user, "some password" ) );
 
-                var response = Client.Get( new DocumentPath<ElasticUser>( user.Id ) );
+                var response = Client.Get<CustomUser>( new GetRequest( indexName, TypeName.From<CustomUser>(), user.Id ) );
                 Assert.That( response.Source, Is.Not.Null );
                 Assert.That( response.Source.UserName, Is.EqualTo( user.UserName ) );
             }
@@ -70,4 +70,9 @@ namespace Bmbsqd.ElasticIdentity.Tests
             }
 		}
 	}
+
+    public class CustomUser : ElasticUser
+    {
+        
+    }
 }

@@ -60,8 +60,12 @@ namespace Bmbsqd.ElasticIdentity
             var settings = new ConnectionSettings( connectionString )
                 .DisableDirectStreaming( true )       // Bug: https://github.com/elastic/elasticsearch-net/issues/1856
                 .MapDefaultTypeIndices( x => x.Add( typeof ( TUser ), indexName ) )
-                .MapDefaultTypeNames( x => x.Add( typeof ( TUser ), entityName ) )
-                .DisablePing();
+                //.MapDefaultTypeNames( x => x.Add( typeof ( TUser ), entityName ) )        // If this is done, then you cannot use custom type names.
+                .MaximumRetries( 3 )
+                .RequestTimeout( new TimeSpan( 0, 0, 30 ) )
+                .MaxRetryTimeout( new TimeSpan( 0, 0, 120 ) )
+                //.PingTimeout(new TimeSpan(0, 0, 60))
+                .DisablePing();     // If you're running a cluster, I would imagine you want ping enabled for marking clusters down.
                 //.SetJsonSerializerSettingsModifier( s => s.Converters.Add( new ElasticEnumConverter() ) );    // ToDo: What replaces thsi?
             return new ElasticClient( settings );
         }
@@ -111,10 +115,11 @@ namespace Bmbsqd.ElasticIdentity
 			if( connectionString == null ) throw new ArgumentNullException( "connectionString" );
 			if( indexName == null ) throw new ArgumentNullException( "indexName" );
 			if( entityName == null ) throw new ArgumentNullException( "entityName" );
-			if( !_nameValidationRegex.IsMatch( indexName ) ) {
+            
+			if( !_indexNameValidationRegex.IsMatch( indexName ) ) {
 				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
 			}
-			if( !_nameValidationRegex.IsMatch( entityName ) ) {
+			if( !_typeNameValidationRegex.IsMatch( entityName ) ) {
 				throw new ArgumentException( "Invalid Characters in entityName, must be all lowercase", "entityName" );
 			}
 
@@ -126,14 +131,12 @@ namespace Bmbsqd.ElasticIdentity
 			} );
 		}
 
-        public ElasticUserStore(IElasticClient client, string indexName = "users", string entityName = "user", bool forceRecreate = false)
+        public ElasticUserStore( IElasticClient client, string indexName = "users", string entityName = "user", bool forceRecreate = false )
         {
-            _connection = new Lazy<Task<IElasticClient>>(async () =>
-           {
-               await SetupIndexAsync(client, indexName, entityName, forceRecreate).ConfigureAwait(false);
-
+            _connection = new Lazy<Task<IElasticClient>>( async () => {
+               await SetupIndexAsync( client, indexName, entityName, forceRecreate ).ConfigureAwait( false );
                return client;
-           });
+           } );
         }
 
 		void IDisposable.Dispose()
@@ -312,11 +315,11 @@ namespace Bmbsqd.ElasticIdentity
                     .Bool( b => b
                         .Filter( f1 => f1
                             .Term( t1 => t1
-                                .Field( tf1 => tf1.Logins[0].ProviderKey )
+                                .Field( tf1 => tf1.Logins.First().ProviderKey )
                                 .Value( login.ProviderKey ) ) )
                         .Filter( f2 => f2
                             .Term( t2 => t2
-                                .Field( tf2 => tf2.Logins[0].LoginProvider )
+                                .Field( tf2 => tf2.Logins.First().LoginProvider )
                                 .Value( login.LoginProvider ) ) ) ) ) ) );
             // ToDo: Verify the query above, use containers?
             if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
@@ -530,8 +533,9 @@ namespace Bmbsqd.ElasticIdentity
 		protected static readonly Task DoneTask = Task.FromResult( true );
 		protected const int DefaultSizeForAll = 1000*1000;
 
-	    protected static readonly Regex _nameValidationRegex = new Regex( "^[\\[\\]a-z0-9-_\\.]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled );
-		public event EventHandler<ElasticUserStoreTraceEventArgs> Trace;
+	    protected static readonly Regex _indexNameValidationRegex = new Regex( "^[\\[\\]a-z0-9-_\\.]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled );
+        protected static readonly Regex _typeNameValidationRegex = new Regex("^[a-zA-Z0-9-_]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        public event EventHandler<ElasticUserStoreTraceEventArgs> Trace;
 
 		protected virtual void OnTrace( IApiCallDetails callDetails )
 		{
