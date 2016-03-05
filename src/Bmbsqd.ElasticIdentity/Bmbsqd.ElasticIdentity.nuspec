@@ -1,9 +1,10 @@
 <?xml version="1.0"?>
 
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
-	<metadata>
+
+  <metadata>
 		<id>Bmbsqd.ElasticIdentity</id>
-		<version>1.0.0</version>
+		<version>2.0.0</version>
 		<title>Identity Provider for Elasticsearch</title>
 		<authors>BMBSQD</authors>
 		<owners>BMBSQD</owners>
@@ -18,10 +19,25 @@
 		<!--<references></references>-->
 		<dependencies>
 			<group>
-				<dependency id="Microsoft.AspNet.Identity.Core" version="2.0" />
-				<dependency id="Newtonsoft.Json" version="6.0" />
-				<dependency id="NEST" version="1.0" />
+				<dependency id="Microsoft.AspNet.Identity.Core" version="2.2.1" />
+				<dependency id="Newtonsoft.Json" version="8.0.2" />
+				<dependency id="Elasticsearch.Net" version="2.0.4" />
+				<dependency id="NEST" version="2.0.4" />
 			</group>
 		</dependencies>
 	</metadata>
+
+  <files>
+    <file src="bin\Release\Bmbsqd.ElasticIdentity.dll" target="lib\net46\Bmbsqd.ElasticIdentity.dll" />
+    <file src="bin\Release\Bmbsqd.ElasticIdentity.dll.config" target="lib\net46\Bmbsqd.ElasticIdentity.dll.config" />
+    <file src="bin\Release\Bmbsqd.ElasticIdentity.pdb" target="lib\net46\Bmbsqd.ElasticIdentity.pdb" />
+    <file src="bin\Release\Elasticsearch.Net.dll" target="lib\net46\Elasticsearch.Net.dll" />
+    <file src="bin\Release\Elasticsearch.Net.pdb" target="lib\net46\Elasticsearch.Net.pdb" />
+    <file src="bin\Release\Microsoft.AspNet.Identity.Core.dll" target="lib\net46\Microsoft.AspNet.Identity.Core.dll" />
+    <file src="bin\Release\Nest.dll" target="lib\net46\Nest.dll" />
+    <file src="bin\Release\Nest.pdb" target="lib\net46\Nest.pdb" />
+    <file src="bin\Release\Newtonsoft.Json.dll" target="lib\net46\Newtonsoft.Json.dll" />
+    <file src="bin\Release\nunit.framework.dll" target="lib\net46\nunit.framework.dll" /> <!-- ? -->
+  </files>
+
 </package>

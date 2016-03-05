@@ -58,13 +58,13 @@ namespace Bmbsqd.ElasticIdentity
 		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName )
 		{
             var settings = new ConnectionSettings( connectionString )
-                .DisableDirectStreaming( true )       // Bug: https://github.com/elastic/elasticsearch-net/issues/1856
+                .DisableDirectStreaming( true )       // Bug: https://github.com/elastic/elasticsearch-net/issues/1856 PR: https://github.com/elastic/elasticsearch-net/pull/1888
                 .MapDefaultTypeIndices( x => x.Add( typeof ( TUser ), indexName ) )
                 .MaximumRetries( 3 )
                 .RequestTimeout( new TimeSpan( 0, 0, 30 ) )
                 .MaxRetryTimeout( new TimeSpan( 0, 0, 120 ) )
                 //.PingTimeout(new TimeSpan(0, 0, 60))
-                .DisablePing();     // If you're running a cluster, I would imagine you want ping enabled for marking clusters down.
+                .DisablePing();     // If you're running a cluster, I would imagine you want ping enabled for marking nodes down.
                 //.SetJsonSerializerSettingsModifier( s => s.Converters.Add( new ElasticEnumConverter() ) );    // ToDo: What replaces thsi?
             return new ElasticClient( settings );
         }
@@ -85,9 +85,7 @@ namespace Bmbsqd.ElasticIdentity
                             .Analyzers( aa => aa
                                 .Custom( "lowercaseKeyword", c => c
                                     .Tokenizer( "keyword" )
-                                    .Filters( "standard", "lowercase" ) ) )
-                        )
-                    )
+                                    .Filters( "standard", "lowercase" ) ) ) ) )
                     .Mappings( m => m
                         .Map<TUser>( mm => mm
                             .AutoMap()
@@ -111,10 +109,9 @@ namespace Bmbsqd.ElasticIdentity
 
 		public ElasticUserStore( Uri connectionString, string indexName = "users", bool forceRecreate = false )
 		{
-			if( connectionString == null ) throw new ArgumentNullException( "connectionString" );
-			if( indexName == null ) throw new ArgumentNullException( "indexName" );
+			if ( connectionString == null ) throw new ArgumentNullException( "connectionString" );
             
-			if( !_indexNameValidationRegex.IsMatch( indexName ) ) {
+			if ( !_indexNameValidationRegex.IsMatch( indexName ) ) {
 				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
 			}
 
@@ -125,8 +122,29 @@ namespace Bmbsqd.ElasticIdentity
 			} );
 		}
 
+	    public ElasticUserStore( IConnectionSettingsValues settings, string indexName = "users", bool forceRecreate = false )
+	    {
+	        if ( settings == null ) throw new ArgumentNullException( "settings" );
+
+            if ( !_indexNameValidationRegex.IsMatch( indexName ) ) {
+				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
+			}
+
+            _connection = new Lazy<Task<IElasticClient>>( async () => {
+                var connection = new ElasticClient( settings );
+                await SetupIndexAsync( connection, indexName, forceRecreate ).ConfigureAwait( false );
+                return connection;
+            } );
+	    }
+
         public ElasticUserStore( IElasticClient client, string indexName = "users", bool forceRecreate = false )
         {
+            if ( client == null ) throw new ArgumentNullException( "client" );
+
+            if ( !_indexNameValidationRegex.IsMatch( indexName ) ) {
+				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
+			}
+
             _connection = new Lazy<Task<IElasticClient>>( async () => {
                await SetupIndexAsync( client, indexName, forceRecreate ).ConfigureAwait( false );
                return client;
