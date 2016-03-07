@@ -25,7 +25,9 @@
 
 #endregion
 
+using System;
 using System.Threading.Tasks;
+using Nest;
 using NUnit.Framework;
 
 namespace Bmbsqd.ElasticIdentity.Tests
@@ -43,8 +45,8 @@ namespace Bmbsqd.ElasticIdentity.Tests
 		[TearDown]
 		public async void Done()
 		{
-			await Client.DeleteIndexAsync( i => i.Index( _defaultIndex ) );
-		}
+            await Client.DeleteIndexAsync( new DeleteIndexRequest( _defaultIndex ) );
+        }
 
 		[Test]
 		public async Task CreateUser()
@@ -66,6 +68,8 @@ namespace Bmbsqd.ElasticIdentity.Tests
 			user = await store.FindByNameAsync( UserName );
 			Assert.That( user, Is.Not.Null );
 			Assert.That( user.UserName, Is.EqualTo( UserName ) );
+		    Assert.That( user.Id, Is.Not.Null );
+            Assert.That( user.Version, Is.Not.Null );
 		}
 
 		[Test]
@@ -141,6 +145,23 @@ namespace Bmbsqd.ElasticIdentity.Tests
 			user = await store.FindByIdAsync( user.Id );
 
 			Assert.That( user.Roles, Contains.Item( "hello" ) );
+
+            // Create another user object from the same ID.
+		    var sameUser = await store.FindByIdAsync( user.Id );
+		    sameUser.Roles.Add( "another_role" );
+		    await store.UpdateAsync( sameUser );
+		    sameUser = await store.FindByIdAsync( sameUser.Id );
+
+            Assert.That( sameUser.Roles, Contains.Item( "another_role" ) );
+
+            // Same ID, different versions.
+		    Assert.AreEqual( user.Id, sameUser.Id );
+		    Assert.AreNotEqual( user.Version, sameUser.Version );
+
+            // Exception should be thrown as we're attempting to
+            // update the original, out of date, user.
+		    user.Roles.Add( "bad_role" );
+		    Assert.Catch<Exception>( store.UpdateAsync( user ).RunSynchronously );
 		}
 	}
 }

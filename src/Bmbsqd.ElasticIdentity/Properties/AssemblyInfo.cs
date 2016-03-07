@@ -7,10 +7,10 @@ using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle( "Bmbsqd.ElasticIdentity" )]
 [assembly: AssemblyDescription( "ASP.NET Identity Provider for Elasticsearch" )]
-[assembly: AssemblyConfiguration( "" )]
+[assembly: AssemblyConfiguration( ".NET Framework 4.6+ required." )]
 [assembly: AssemblyCompany( "BMBSQD.COM" )]
 [assembly: AssemblyProduct( "Bmbsqd.ElasticIdentity" )]
-[assembly: AssemblyCopyright( "Copyright ©  2013" )]
+[assembly: AssemblyCopyright( "Copyright ©  2016" )]
 [assembly: AssemblyTrademark( "" )]
 [assembly: AssemblyCulture( "" )]
 
@@ -35,5 +35,5 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
 
-[assembly: AssemblyVersion( "1.0.0.0" )]
-[assembly: AssemblyFileVersion( "1.0.0.0" )]
+[assembly: AssemblyVersion( "2.0.0.0" )]
+[assembly: AssemblyFileVersion( "2.0.0.0" )]

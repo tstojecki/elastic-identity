@@ -4,7 +4,7 @@ namespace Bmbsqd.ElasticIdentity
 {
 	public class ElasticUserPhone : ElasticUserConfirmed
 	{
-		[ElasticProperty( IncludeInAll = false, Index = FieldIndexOption.NotAnalyzed )]
-		public string Number { get; set; }
+        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        public string Number { get; set; }
 	}
 }

@@ -33,11 +33,11 @@ namespace Bmbsqd.ElasticIdentity
 {
 	public class ElasticClaim : IEquatable<ElasticClaim>
 	{
-		[ElasticProperty( IncludeInAll = false, Index = FieldIndexOption.NotAnalyzed )]
-		public string Type { get; set; }
+        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        public string Type { get; set; }
 
-		[ElasticProperty( IncludeInAll = false, Index = FieldIndexOption.NotAnalyzed )]
-		public string Value { get; set; }
+        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        public string Value { get; set; }
 
 		public ElasticClaim()
 		{
