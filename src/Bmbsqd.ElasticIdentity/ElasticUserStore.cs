@@ -54,7 +54,7 @@ namespace ElasticIdentity
 	{
 		private readonly Lazy<Task<IElasticClient>> _connection;
 
-		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName )
+		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName, string user = null, string pswd = null )
 		{
             var settings = new ConnectionSettings( connectionString )
                 .DisableDirectStreaming( true )       // Bug: https://github.com/elastic/elasticsearch-net/issues/1856 PR: https://github.com/elastic/elasticsearch-net/pull/1888
@@ -65,6 +65,14 @@ namespace ElasticIdentity
                 //.PingTimeout(new TimeSpan(0, 0, 60))
                 .DisablePing();     // If you're running a cluster, I would imagine you want ping enabled for marking nodes down.
                 //.SetJsonSerializerSettingsModifier( s => s.Converters.Add( new ElasticEnumConverter() ) );    // ToDo: What replaces thsi?
+
+		    if (!string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(pswd))
+		        settings.BasicAuthentication(user, pswd);
+
+            // Example for setting up an IsValidCertificate() method (towards the bottom).
+            // https://nest.azurewebsites.net/elasticsearch-net/security.html
+            // NOTE: Heed the advice and warnings under "Working with untrusted SSL certificates".
+
             return new ElasticClient( settings );
         }
 
