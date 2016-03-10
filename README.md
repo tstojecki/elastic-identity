@@ -10,17 +10,22 @@ Elastic-Identity wires up the storage and repository of ElasticSearch with ASP.N
 Revision History
 ==========
 
-- 2.0.0-rc1
+- 2.0.0-rc1 
+  
+  Remarks:
   - Bump projects to .NET Framework 4.6.
   - Upgrades:
      - nUnit 2.6.4 and ASP.NET Identity 2.2.1.
      - Elasticsearch.Net/NEST 2.0.4.
   - Optimistic concurrency control support using document _version.
   - Add quorum consistency on all operations sans read/get.
+  - Align version with Elasticsearch.
+
   - Breaking changes:
+	 - Bracking change in renaming namespace from Bmbsqd.ElasticIdentity to ElasticIdentity
      - The JSON document representing the user no longer contains the 'id' field in favor of the document's meta value '_id'. The ElasticUser.Id property is still present on the class and will contain the '_id' value. This same principle is used for ElasticUser.Version (via _version).
 	 - Breaking change in constructor; no more type parameter. Rely on the class type instead.
-  - Align version with Elasticsearch.
+
 - 1.0.0-rc2
   - Fixed version problem with NEST dependency  
 - 1.0.0-rc1
@@ -148,6 +153,13 @@ Contributing
 Yes please
 
 Thanks to [tstojecki](https://github.com/tstojecki) for the NEST-RC1 upgrade
+
+History
+-------
+The first version of the library was developed by [bmbsqd] (http://github.com/bmbsqd). 
+
+As of ver 2.0.0, the ownership was transfered to [tstojecki] (github.com/tstojecki). Starting with version 2.0.0, a new package has been built and published up on nuget. The namespace and the assembly names were also changed to ElasticIdentity from Bmbsqd.ElasticIdentity.
+If you want to previous version of the library, you the older version of the package and the source code remain available under their original locations.
 
 Copyright and license
 ---------------------
