@@ -30,14 +30,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Elasticsearch.Net;
 using Microsoft.AspNet.Identity;
 using Nest;
 
-namespace Bmbsqd.ElasticIdentity
+namespace ElasticIdentity
 {
 	public class ElasticUserStore<TUser> :
 		ElasticUserStore,

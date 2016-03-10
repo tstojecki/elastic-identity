@@ -27,7 +27,7 @@
 
 using System;
 
-namespace Bmbsqd.ElasticIdentity
+namespace ElasticIdentity
 {
 	public class ElasticUserStoreTraceEventArgs : EventArgs
 	{

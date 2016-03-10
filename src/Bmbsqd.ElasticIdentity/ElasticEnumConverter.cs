@@ -1,6 +1,6 @@
 using Newtonsoft.Json.Converters;
 
-namespace Bmbsqd.ElasticIdentity
+namespace ElasticIdentity
 {
 	public class ElasticEnumConverter : StringEnumConverter
 	{

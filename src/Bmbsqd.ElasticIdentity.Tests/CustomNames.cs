@@ -30,7 +30,7 @@ using Microsoft.AspNet.Identity;
 using Nest;
 using NUnit.Framework;
 
-namespace Bmbsqd.ElasticIdentity.Tests
+namespace ElasticIdentity.Tests
 {
 	[TestFixture]
 	public class CustomNames : TestBase

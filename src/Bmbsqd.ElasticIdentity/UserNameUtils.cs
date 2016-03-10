@@ -25,7 +25,7 @@
 
 #endregion
 
-namespace Bmbsqd.ElasticIdentity
+namespace ElasticIdentity
 {
 	internal static class UserNameUtils
 	{

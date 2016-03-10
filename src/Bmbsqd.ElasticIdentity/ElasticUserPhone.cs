@@ -1,6 +1,6 @@
 ﻿using Nest;
 
-namespace Bmbsqd.ElasticIdentity
+namespace ElasticIdentity
 {
 	public class ElasticUserPhone : ElasticUserConfirmed
 	{

@@ -29,7 +29,7 @@ using System;
 using System.Security.Claims;
 using Nest;
 
-namespace Bmbsqd.ElasticIdentity
+namespace ElasticIdentity
 {
 	public class ElasticClaim : IEquatable<ElasticClaim>
 	{

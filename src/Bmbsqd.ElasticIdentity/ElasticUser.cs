@@ -32,7 +32,7 @@ using Microsoft.AspNet.Identity;
 using Nest;
 using Newtonsoft.Json;
 
-namespace Bmbsqd.ElasticIdentity
+namespace ElasticIdentity
 {
 	public class ElasticUser : IUser
 	{

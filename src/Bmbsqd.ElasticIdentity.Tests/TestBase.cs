@@ -3,7 +3,7 @@ using Microsoft.AspNet.Identity;
 using Nest;
 using NUnit.Framework;
 
-namespace Bmbsqd.ElasticIdentity.Tests
+namespace ElasticIdentity.Tests
 {
 	public abstract class TestBase
 	{

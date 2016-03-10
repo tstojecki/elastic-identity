@@ -32,7 +32,7 @@ using Nest;
 using Newtonsoft.Json;
 using NUnit.Framework;
 
-namespace Bmbsqd.ElasticIdentity.Tests
+namespace ElasticIdentity.Tests
 {
 	[TestFixture]
 	public class ExtendedUser : TestBase

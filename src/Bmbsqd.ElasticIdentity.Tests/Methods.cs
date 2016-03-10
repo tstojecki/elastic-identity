@@ -30,7 +30,7 @@ using System.Threading.Tasks;
 using Nest;
 using NUnit.Framework;
 
-namespace Bmbsqd.ElasticIdentity.Tests
+namespace ElasticIdentity.Tests
 {
 	[TestFixture]
 	public class Methods : TestBase

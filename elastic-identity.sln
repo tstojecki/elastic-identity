@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.30501.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bmbsqd.ElasticIdentity", "src\Bmbsqd.ElasticIdentity\Bmbsqd.ElasticIdentity.csproj", "{B5C9EE8E-05AD-441B-BFEB-A7A9B32445C9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElasticIdentity", "src\Bmbsqd.ElasticIdentity\ElasticIdentity.csproj", "{B5C9EE8E-05AD-441B-BFEB-A7A9B32445C9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bmbsqd.ElasticIdentity.Tests", "src\Bmbsqd.ElasticIdentity.Tests\Bmbsqd.ElasticIdentity.Tests.csproj", "{4D05EFA0-B34F-43B7-A40B-E825A2C643B1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElasticIdentity.Tests", "src\Bmbsqd.ElasticIdentity.Tests\ElasticIdentity.Tests.csproj", "{4D05EFA0-B34F-43B7-A40B-E825A2C643B1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
