@@ -76,7 +76,7 @@ namespace ElasticIdentity
         public string UserName
 		{
 			get { return _userName; }
-			set { _userName = UserNameUtils.FormatUserName( value ); }
+			set { _userName = value?.ToLowerInvariant(); }
 		}
 
         [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]

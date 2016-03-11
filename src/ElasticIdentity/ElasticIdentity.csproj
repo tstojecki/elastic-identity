@@ -77,7 +77,6 @@
     <Compile Include="ElasticUserStore.cs" />
     <Compile Include="ElasticUserStoreTraceEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UserNameUtils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

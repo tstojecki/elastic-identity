@@ -236,25 +236,27 @@ namespace ElasticIdentity
             return r;
         }
 
-		public async Task<TUser> FindByNameAsync( string userName )
+		public async Task<TUser> FindByNameAsync(string userName)
 		{
-            if ( userName == null ) throw new ArgumentNullException( nameof( userName ) );
-            var connection = await Connection;
-            var result = Wrap( await connection.SearchAsync<TUser>( s => s
-                .Version( true )      // Bug: This is default, but we only get version if we set this. Need to file.
-                .Query( q => q
-                    .Bool( b => b
-                        .Filter( f => f
-                            .Term( t => t
-                                .Field( tf => tf.UserName )
-                                .Value( UserNameUtils.FormatUserName( userName ) ) ) ) ) ) ) );
+            if (userName == null)
+                throw new ArgumentNullException(nameof(userName));
 
-            if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
+            var connection = await Connection;
+            var result = Wrap(await connection.SearchAsync<TUser>(s => s
+              .Version(true)      // Bug: This is default, but we only get version if we set this. Need to file.
+              .Query(q => q
+                 .Bool(b => b
+                    .Filter(f => f
+                       .Term(t => t
+                          .Field(tf => tf.UserName)
+                          .Value(userName.ToLowerInvariant())))))));
+
+            if (!result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any())
                 return null;
 
             var r = result.Documents.FirstOrDefault();
 
-            if ( r == null )
+            if (r == null)
                 return null;
 
             // ToDo: Fix these
