@@ -81,7 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <None Include="Bmbsqd.ElasticIdentity.nuspec">
+    <None Include="ElasticIdentity.nuspec">
       <SubType>Designer</SubType>
     </None>
     <None Include="build.cmd" />
