@@ -22,7 +22,7 @@ Revision History
   - Align version with Elasticsearch.
 
   - Breaking changes:
-	 - Bracking change in renaming namespace from Bmbsqd.ElasticIdentity to ElasticIdentity
+	 - Renamed namespace from Bmbsqd.ElasticIdentity to ElasticIdentity, renamed assemblies and project names
      - The JSON document representing the user no longer contains the 'id' field in favor of the document's meta value '_id'. The ElasticUser.Id property is still present on the class and will contain the '_id' value. This same principle is used for ElasticUser.Version (via _version).
 	 - Breaking change in constructor; no more type parameter. Rely on the class type instead.
 
@@ -152,14 +152,16 @@ Contributing
 
 Yes please
 
+Thanks to [Ry-K](https://github.com/Ry-K) for the 2.0.0 upgrade
 Thanks to [tstojecki](https://github.com/tstojecki) for the NEST-RC1 upgrade
+Thanks to [bmbsqd](https://github.com/bmbsqd) for version 1.0.0-rc1
 
 History
 -------
 The first version of the library was developed by [bmbsqd] (http://github.com/bmbsqd). 
 
-As of ver 2.0.0, the ownership was transfered to [tstojecki] (github.com/tstojecki). Starting with version 2.0.0, a new package has been built and published up on nuget. The namespace and the assembly names were also changed to ElasticIdentity from Bmbsqd.ElasticIdentity.
-If you want to previous version of the library, you the older version of the package and the source code remain available under their original locations.
+As of version 2.0.0, the ownership was transfered to [tstojecki]. Starting with version 2.0.0, a new package has been built and published up on nuget. The namespace and the assembly names were also changed to ElasticIdentity from Bmbsqd.ElasticIdentity.
+The older version continues to be available on nuget and the source code on github.com/bmbsqd.
 
 Copyright and license
 ---------------------
