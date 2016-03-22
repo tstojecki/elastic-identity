@@ -30,7 +30,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Elasticsearch.Net;
 using Microsoft.AspNet.Identity;
@@ -38,196 +37,174 @@ using Nest;
 
 namespace ElasticIdentity
 {
-	public class ElasticUserStore<TUser> :
-		ElasticUserStore,
-		IUserStore<TUser>,
-		IUserLoginStore<TUser>,
-		IUserClaimStore<TUser>,
-		IUserRoleStore<TUser>,
-		IUserPasswordStore<TUser>,
-		IUserSecurityStampStore<TUser>,
-		IUserTwoFactorStore<TUser, string>,
-		IUserEmailStore<TUser, string>,
-		IUserPhoneNumberStore<TUser, string>
-		//IUserLockoutStore<TUser,string>
-		where TUser : ElasticUser
-	{
-		private readonly Lazy<Task<IElasticClient>> _connection;
+    public class ElasticUserStore<TUser> :
+        ElasticUserStore,
+        IUserStore<TUser>,
+        IUserLoginStore<TUser>,
+        IUserClaimStore<TUser>,
+        IUserRoleStore<TUser>,
+        IUserPasswordStore<TUser>,
+        IUserSecurityStampStore<TUser>,
+        IUserTwoFactorStore<TUser, string>,
+        IUserEmailStore<TUser, string>,
+        IUserPhoneNumberStore<TUser, string>
+        where TUser : ElasticUser
+    {
+        private readonly Lazy<IElasticClient> _client;
 
-		protected virtual IElasticClient CreateClient( Uri connectionString, string indexName, string user = null, string pswd = null )
-		{
-            var settings = new ConnectionSettings( connectionString )
-                .DisableDirectStreaming( true )       // Bug: https://github.com/elastic/elasticsearch-net/issues/1856 PR: https://github.com/elastic/elasticsearch-net/pull/1888
-                .MapDefaultTypeIndices( x => x.Add( typeof ( TUser ), indexName ) )
-                .MaximumRetries( 3 )
-                .RequestTimeout( new TimeSpan( 0, 0, 30 ) )
-                .MaxRetryTimeout( new TimeSpan( 0, 0, 120 ) )
-                //.PingTimeout(new TimeSpan(0, 0, 60))
-                .DisablePing();     // If you're running a cluster, I would imagine you want ping enabled for marking nodes down.
-                //.SetJsonSerializerSettingsModifier( s => s.Converters.Add( new ElasticEnumConverter() ) );    // ToDo: What replaces thsi?
-
-		    if (!string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(pswd))
-		        settings.BasicAuthentication(user, pswd);
-
-            // Example for setting up an IsValidCertificate() method (towards the bottom).
-            // https://nest.azurewebsites.net/elasticsearch-net/security.html
-            // NOTE: Heed the advice and warnings under "Working with untrusted SSL certificates".
-
-            return new ElasticClient( settings );
+        protected virtual IElasticClient Client
+        {
+            get
+            {
+                return _client.Value;
+            }
         }
 
-		protected virtual async Task SetupIndexAsync( IElasticClient connection, string indexName, bool forceCreate )
-		{
-            var exists = Wrap( await connection.IndexExistsAsync( new IndexExistsRequest( indexName ) ).ConfigureAwait( false ) ).Exists;
+        protected virtual bool IndexCreated
+        {
+            get; set;
+        }
 
-            if ( exists && forceCreate ) {
-                Wrap( await connection.DeleteIndexAsync( new DeleteIndexRequest( indexName ) ).ConfigureAwait( false ) );
+        public ElasticUserStore(Uri elasticServerUri, string indexName = "users", bool forceRecreate = false)
+        {
+            if (elasticServerUri == null)
+            {
+                throw new ArgumentNullException(nameof(elasticServerUri));
+            }
+
+            _client = new Lazy<IElasticClient>(() =>
+            {
+                // most basic client settings, for everything else use the constructor that takes IElastiClient
+                var settings = new ConnectionSettings(elasticServerUri)
+                    .MapDefaultTypeIndices(x => x.Add(typeof(TUser), indexName));
+
+                var client = new ElasticClient(settings);
+
+                // TODO: move the setup logic out of the store, the store should not be concerned with db setup
+                // see other providers, e.g. entity framework, mongo for reference
+                // instead provide a class that will facilitate index setup as part of the package
+                // this will clean up this code quite a bit and keep the tests easier to manage from the standpoint of setup and teardown                
+                EnsureIndex(client, indexName, forceRecreate);
+                return client;
+            });
+        }
+
+        public ElasticUserStore(IElasticClient client, string indexName = "users", bool forceRecreate = false)
+        {
+            if (client == null)
+            {
+                throw new ArgumentNullException(nameof(client));
+            }
+
+            _client = new Lazy<IElasticClient>(() =>
+            {
+                EnsureIndex(client, indexName, forceRecreate);
+                return client;
+            });
+        }
+
+        protected virtual void EnsureIndex(IElasticClient connection, string indexName, bool forceCreate)
+        {
+            var exists = Wrap(connection.IndexExists(new IndexExistsRequest(indexName))).Exists;
+
+            if (exists && forceCreate)
+            {
+                Wrap(connection.DeleteIndex(new DeleteIndexRequest(indexName)));
                 exists = false;
             }
 
-            if ( !exists ) {
-                var createResponse = Wrap( await connection.CreateIndexAsync( indexName, desc => desc
-                    .Settings( s => s
-                        .Analysis( a => a
-                            .Analyzers( aa => aa
-                                .Custom( "lowercaseKeyword", c => c
-                                    .Tokenizer( "keyword" )
-                                    .Filters( "standard", "lowercase" ) ) ) ) )
-                    .Mappings( m => m
-                        .Map<TUser>( mm => mm
-                            .AutoMap()
-                            .AllField( af => af
-                                .Enabled( false ) ) ) ) )
-                    .ConfigureAwait( false ) );
+            if (!exists)
+            {
+                var response = Wrap(connection.CreateIndex(indexName, DescribeIndex));
 
-                AssertIndexCreateSuccess( createResponse );
-                await SeedAsync().ConfigureAwait( false );
+                IndexCreated = AssertResponseSuccess(response);
             }
         }
 
-		protected void AssertIndexCreateSuccess( IResponse createResponse )
-		{
-		    if ( createResponse.ApiCall.Success ) return;
-		    if ( createResponse.OriginalException != null ) { 
-		        throw createResponse.OriginalException;
-		    }
-		    throw new ApplicationException( $"Error while creating index:\n{createResponse.DebugInformation}" );
-		}
-
-		public ElasticUserStore( Uri connectionString, string indexName = "users", bool forceRecreate = false )
-		{
-			if ( connectionString == null ) throw new ArgumentNullException( "connectionString" );
-            
-			if ( !_indexNameValidationRegex.IsMatch( indexName ) ) {
-				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
-			}
-
-			_connection = new Lazy<Task<IElasticClient>>( async () => {
-				var connection = CreateClient( connectionString, indexName );
-				await SetupIndexAsync( connection, indexName, forceRecreate ).ConfigureAwait( false );
-				return connection;
-			} );
-		}
-
-	    public ElasticUserStore( IConnectionSettingsValues settings, string indexName = "users", bool forceRecreate = false )
-	    {
-	        if ( settings == null ) throw new ArgumentNullException( "settings" );
-
-            if ( !_indexNameValidationRegex.IsMatch( indexName ) ) {
-				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
-			}
-
-            _connection = new Lazy<Task<IElasticClient>>( async () => {
-                var connection = new ElasticClient( settings );
-                await SetupIndexAsync( connection, indexName, forceRecreate ).ConfigureAwait( false );
-                return connection;
-            } );
-	    }
-
-        public ElasticUserStore( IElasticClient client, string indexName = "users", bool forceRecreate = false )
+        public static ICreateIndexRequest DescribeIndex(CreateIndexDescriptor createIndexDescriptor)
         {
-            if ( client == null ) throw new ArgumentNullException( "client" );
-
-            if ( !_indexNameValidationRegex.IsMatch( indexName ) ) {
-				throw new ArgumentException( "Invalid Characters in indexName, must be all lowercase", "indexName" );
-			}
-
-            _connection = new Lazy<Task<IElasticClient>>( async () => {
-               await SetupIndexAsync( client, indexName, forceRecreate ).ConfigureAwait( false );
-               return client;
-           } );
+            return createIndexDescriptor.Settings(s => s
+                .Analysis(a => a
+                    .Analyzers(aa => aa
+                        .Custom("lowercaseKeyword", c => c
+                        .Tokenizer("keyword")
+                        .Filters("standard", "lowercase")))))
+                .Mappings(m => m
+                    .Map<TUser>(mm => mm
+                        .AutoMap()
+                        .AllField(af => af
+                            .Enabled(false))));
         }
 
-		void IDisposable.Dispose()
-		{
-		}
+        private bool AssertResponseSuccess(IResponse response)
+        {
+            if (response.OriginalException != null)
+            {
+                throw response.OriginalException;
+            }
+            else
+            {
+                if (!response.ApiCall.Success)
+                {
+                    throw new Exception($"Error while creating index:\n{response.DebugInformation}");
+                }
+            }
 
-		protected virtual Task SeedAsync()
-		{
-			return DoneTask;
-		}
+            return true;
+        }
 
-		protected ConfiguredTaskAwaitable<IElasticClient> Connection
-		{
-			get { return _connection.Value.ConfigureAwait( false ); }
-		}
+        public virtual void Dispose()
+        {
+        }
 
-		public async Task ConnectionSetup()
-		{
-			await Connection;
-		}
-
-		private async Task CreateOrUpdateAsync( TUser user, bool create )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var connection = await Connection;
-
+        private async Task CreateOrUpdateAsync(TUser user, bool create)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            
             // We need to specify op_type as we are generating the ID (guid) in code.
             // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html
             // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#operation-type
             // On versioning.
             // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#index-versioning
 
-            if ( create )
-                Wrap( await connection.IndexAsync( user, x => x
-                    .OpType( OpType.Create )      // Fail if a document with the ID provided already exists.
-                    .Consistency( Consistency.Quorum )
-                    .Refresh() ) );
+            if (create)
+                Wrap(await Client.IndexAsync(user, x => x
+                  .OpType(OpType.Create)      // Fail if a document with the ID provided already exists.
+                  .Consistency(Consistency.Quorum)
+                  .Refresh()));
             else
-                Wrap( await connection.IndexAsync( user, x => x
-                    .OpType( OpType.Index )
-                    .Version( user.Version )    // Be sure the document's version hasn't changed.
-                    .Consistency( Consistency.Quorum )
-                    .Refresh() ) );
+                Wrap(await Client.IndexAsync(user, x => x
+                  .OpType(OpType.Index)
+                  .Version(user.Version)    // Be sure the document's version hasn't changed.
+                  .Consistency(Consistency.Quorum)
+                  .Refresh()));
         }
 
-		public Task CreateAsync( TUser user )
-		{
-			return CreateOrUpdateAsync( user, true );
-		}
-
-		public Task UpdateAsync( TUser user )
-		{
-			return CreateOrUpdateAsync( user, false );
-		}
-
-		public async Task DeleteAsync( TUser user )
-		{
-            if ( user == null ) throw new ArgumentNullException( nameof( user ) );
-            var connection = await Connection;
-            Wrap( await connection.DeleteAsync( DocumentPath<TUser>.Id( user.Id ), d => d
-                .Consistency( Consistency.Quorum )
-                .Version( user.Version )
-                .Refresh() ) );
+        public Task CreateAsync(TUser user)
+        {
+            return CreateOrUpdateAsync(user, true);
         }
 
-		public async Task<TUser> FindByIdAsync( string userId )
-		{
-            if ( userId == null ) throw new ArgumentNullException( nameof( userId ) );
-            var connection = await Connection;
-            var result = Wrap( await connection.GetAsync( DocumentPath<TUser>.Id( userId ) ) );
+        public Task UpdateAsync(TUser user)
+        {
+            return CreateOrUpdateAsync(user, false);
+        }
 
-            if ( !result.IsValid || !result.Found )
+        public async Task DeleteAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            Wrap(await Client.DeleteAsync(DocumentPath<TUser>.Id(user.Id), d => d
+            .Consistency(Consistency.Quorum)
+            .Version(user.Version)
+            .Refresh()));
+        }
+
+        public async Task<TUser> FindByIdAsync(string userId)
+        {
+            if (userId == null) throw new ArgumentNullException(nameof(userId));
+            var result = Wrap(await Client.GetAsync(DocumentPath<TUser>.Id(userId)));
+
+            if (!result.IsValid || !result.Found)
                 return null;
 
             var r = result.Source;
@@ -236,13 +213,12 @@ namespace ElasticIdentity
             return r;
         }
 
-		public async Task<TUser> FindByNameAsync(string userName)
-		{
+        public async Task<TUser> FindByNameAsync(string userName)
+        {
             if (userName == null)
                 throw new ArgumentNullException(nameof(userName));
 
-            var connection = await Connection;
-            var result = Wrap(await connection.SearchAsync<TUser>(s => s
+            var result = Wrap(await Client.SearchAsync<TUser>(s => s
               .Version(true)      // Bug: This is default, but we only get version if we set this. Need to file.
               .Query(q => q
                  .Bool(b => b
@@ -268,25 +244,25 @@ namespace ElasticIdentity
             return r;
         }
 
-		public async Task<TUser> FindByEmailAsync( string email )
-		{
-            if ( email == null ) throw new ArgumentNullException( nameof( email ) );
-            var connection = await Connection;
-            var result = Wrap( await connection.SearchAsync<TUser>( s => s
-                .Version( true )      // Bug: This is default, but we only get version if we set this. Need to file.
-                .Query( q => q
-                    .Bool( b => b
-                        .Filter( f => f
-                            .Term( t => t
-                                .Field( tf => tf.Email.Address )
-                                .Value( email ) ) ) ) ) ) );
+        public async Task<TUser> FindByEmailAsync(string email)
+        {
+            if (email == null) throw new ArgumentNullException(nameof(email));
+            
+            var result = Wrap(await Client.SearchAsync<TUser>(s => s
+              .Version(true)      // Bug: This is default, but we only get version if we set this. Need to file.
+              .Query(q => q
+                 .Bool(b => b
+                    .Filter(f => f
+                       .Term(t => t
+                          .Field(tf => tf.Email.Address)
+                          .Value(email)))))));
 
-            if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
+            if (!result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any())
                 return null;
 
             var r = result.Documents.FirstOrDefault();
 
-            if (r == null )
+            if (r == null)
                 return null;
 
             // ToDo: Fix these
@@ -298,58 +274,58 @@ namespace ElasticIdentity
             return r;
         }
 
-		public Task AddLoginAsync( TUser user, UserLoginInfo login )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			if( login == null ) throw new ArgumentNullException( "login" );
+        public Task AddLoginAsync(TUser user, UserLoginInfo login)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (login == null) throw new ArgumentNullException("login");
 
-			user.Logins.Add( new ElasticUserLoginInfo {
-				LoginProvider = login.LoginProvider,
-				ProviderKey = login.ProviderKey
-			} );
-			return DoneTask;
-		}
+            user.Logins.Add(new ElasticUserLoginInfo
+            {
+                LoginProvider = login.LoginProvider,
+                ProviderKey = login.ProviderKey
+            });
+            return DoneTask;
+        }
 
-		public Task RemoveLoginAsync( TUser user, UserLoginInfo login )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			if( login == null ) throw new ArgumentNullException( "login" );
-			user.Logins.RemoveAll( x => x.LoginProvider == login.LoginProvider && x.ProviderKey == login.ProviderKey );
-			return DoneTask;
-		}
+        public Task RemoveLoginAsync(TUser user, UserLoginInfo login)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (login == null) throw new ArgumentNullException("login");
+            user.Logins.RemoveAll(x => x.LoginProvider == login.LoginProvider && x.ProviderKey == login.ProviderKey);
+            return DoneTask;
+        }
 
-		public Task<IList<UserLoginInfo>> GetLoginsAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			return Task.FromResult<IList<UserLoginInfo>>( user
-				.Logins
-				.Select( x => new UserLoginInfo( x.LoginProvider, x.ProviderKey ) )
-				.ToList() );
-		}
+        public Task<IList<UserLoginInfo>> GetLoginsAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult<IList<UserLoginInfo>>(user
+                .Logins
+                .Select(x => new UserLoginInfo(x.LoginProvider, x.ProviderKey))
+                .ToList());
+        }
 
-		public async Task<TUser> FindAsync( UserLoginInfo login )
-		{
-            if ( login == null ) throw new ArgumentNullException( nameof( login ) );
-            var connection = await Connection;
-            // ToDo: Create test for this.
-		    var result = Wrap( await connection.SearchAsync<TUser>( s => s
-		        .Query( q => q
-		            .Bool( b => b
-		                .Filter( f =>
-		                    f.Term( t1 => t1
-		                        .Field( tf1 => tf1.Logins.First().LoginProvider)
-		                        .Value( login.LoginProvider) )
-		                    &&
-		                    f.Term( t2 => t2
-		                        .Field( tf2 => tf2.Logins.First().ProviderKey)
-		                        .Value( login.ProviderKey) ) ) ) ) ) );
+        public async Task<TUser> FindAsync(UserLoginInfo login)
+        {
+            if (login == null) throw new ArgumentNullException(nameof(login));
+            
+            var result = Wrap(await Client.SearchAsync<TUser>(s => s
+              .Query(q => q
+                 .Bool(b => b
+                    .Filter(f =>
+                       f.Term(t1 => t1
+                          .Field(tf1 => tf1.Logins.First().LoginProvider)
+                          .Value(login.LoginProvider))
+                       &&
+                       f.Term(t2 => t2
+                          .Field(tf2 => tf2.Logins.First().ProviderKey)
+                          .Value(login.ProviderKey)))))));
 
-            if ( !result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any() )
+            if (!result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any())
                 return null;
 
             var r = result.Documents.FirstOrDefault();
 
-            if ( r == null )
+            if (r == null)
                 return null;
 
             // ToDo: Fix these
@@ -360,215 +336,213 @@ namespace ElasticIdentity
             return r;
         }
 
-		public Task<IList<Claim>> GetClaimsAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var result = (IList<Claim>)user
-				.Claims
-				.Select( x => x.AsClaim() )
-				.ToList();
-			return Task.FromResult( result );
-		}
+        public Task<IList<Claim>> GetClaimsAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var result = (IList<Claim>)user
+                .Claims
+                .Select(x => x.AsClaim())
+                .ToList();
+            return Task.FromResult(result);
+        }
 
-		public Task AddClaimAsync( TUser user, Claim claim )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			if( claim == null ) throw new ArgumentNullException( "claim" );
-			user.Claims.Add( claim );
-			return DoneTask;
-		}
+        public Task AddClaimAsync(TUser user, Claim claim)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (claim == null) throw new ArgumentNullException("claim");
+            user.Claims.Add(claim);
+            return DoneTask;
+        }
 
-		public Task RemoveClaimAsync( TUser user, Claim claim )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			if( claim == null ) throw new ArgumentNullException( "claim" );
-			user.Claims.Remove( claim );
-			return DoneTask;
-		}
+        public Task RemoveClaimAsync(TUser user, Claim claim)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (claim == null) throw new ArgumentNullException("claim");
+            user.Claims.Remove(claim);
+            return DoneTask;
+        }
 
-		public Task AddToRoleAsync( TUser user, string role )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			if( role == null ) throw new ArgumentNullException( "role" );
-			user.Roles.Add( role );
-			return DoneTask;
-		}
+        public Task AddToRoleAsync(TUser user, string role)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (role == null) throw new ArgumentNullException("role");
+            user.Roles.Add(role);
+            return DoneTask;
+        }
 
-		public Task RemoveFromRoleAsync( TUser user, string role )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			if( role == null ) throw new ArgumentNullException( "role" );
-			user.Roles.Remove( role );
-			return DoneTask;
-		}
+        public Task RemoveFromRoleAsync(TUser user, string role)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (role == null) throw new ArgumentNullException("role");
+            user.Roles.Remove(role);
+            return DoneTask;
+        }
 
-		public Task<IList<string>> GetRolesAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var result = user.Roles.ToList();
-			return Task.FromResult( (IList<string>)result );
-		}
+        public Task<IList<string>> GetRolesAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var result = user.Roles.ToList();
+            return Task.FromResult((IList<string>)result);
+        }
 
-		public Task<bool> IsInRoleAsync( TUser user, string role )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			if( role == null ) throw new ArgumentNullException( "role" );
-			return Task.FromResult( user.Roles.Contains( role ) );
-		}
+        public Task<bool> IsInRoleAsync(TUser user, string role)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (role == null) throw new ArgumentNullException("role");
+            return Task.FromResult(user.Roles.Contains(role));
+        }
 
-		public Task SetPasswordHashAsync( TUser user, string passwordHash )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			user.PasswordHash = passwordHash;
-			return DoneTask;
-		}
+        public Task SetPasswordHashAsync(TUser user, string passwordHash)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.PasswordHash = passwordHash;
+            return DoneTask;
+        }
 
-		public Task<string> GetPasswordHashAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			return Task.FromResult( user.PasswordHash );
-		}
+        public Task<string> GetPasswordHashAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.PasswordHash);
+        }
 
-		public Task<bool> HasPasswordAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			return Task.FromResult( user.PasswordHash != null );
-		}
+        public Task<bool> HasPasswordAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.PasswordHash != null);
+        }
 
-		public Task SetSecurityStampAsync( TUser user, string stamp )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			user.SecurityStamp = stamp;
-			return DoneTask;
-		}
+        public Task SetSecurityStampAsync(TUser user, string stamp)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.SecurityStamp = stamp;
+            return DoneTask;
+        }
 
-		public Task<string> GetSecurityStampAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			return Task.FromResult( user.SecurityStamp );
-		}
+        public Task<string> GetSecurityStampAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.SecurityStamp);
+        }
 
-		public async Task<IEnumerable<TUser>> GetAllAsync()
-		{
+        public async Task<IEnumerable<TUser>> GetAllAsync()
+        {
             // ToDo: Use scroll -> https://goo.gl/E86ezB
             // Due to the nature Elasticsearch allocates memory on the JVM heap for use in storing the results
             // you should not set the size to a very large value. Relying on the default size of 10 for now.
-            var connection = await Connection;
-            var result = Wrap( await connection.SearchAsync<TUser>( search => search.MatchAll() ) );
+            var result = Wrap(await Client.SearchAsync<TUser>(search => search.MatchAll()));
             return result.Documents;
         }
 
-		public Task SetTwoFactorEnabledAsync( TUser user, bool enabled )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			user.TwoFactorAuthenticationEnabled = enabled;
-			return DoneTask;
-		}
-
-		public Task<bool> GetTwoFactorEnabledAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			return Task.FromResult( user.TwoFactorAuthenticationEnabled );
-		}
-
-		public Task SetEmailAsync( TUser user, string email )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			user.Email = email == null
-				? null
-				: new ElasticUserEmail {Address = email};
-			return DoneTask;
-		}
-
-		public Task<string> GetEmailAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var elasticUserEmail = user.Email;
-
-			return elasticUserEmail != null
-				? Task.FromResult( elasticUserEmail.Address )
-				: Task.FromResult<string>( null );
-		}
-
-		public Task<bool> GetEmailConfirmedAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var elasticUserEmail = user.Email;
-
-			return elasticUserEmail != null
-				? Task.FromResult( elasticUserEmail.IsConfirmed )
-				: Task.FromResult( false );
-		}
-
-		public Task SetEmailConfirmedAsync( TUser user, bool confirmed )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var elasticUserEmail = user.Email;
-			if( elasticUserEmail != null )
-				elasticUserEmail.IsConfirmed = true;
-			else throw new InvalidOperationException( "User have no configured email address" );
-			return DoneTask;
-		}
-
-		public Task SetPhoneNumberAsync( TUser user, string phoneNumber )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			user.Phone = phoneNumber == null
-				? null
-				: new ElasticUserPhone {Number = phoneNumber};
-			return DoneTask;
-		}
-
-		public Task<string> GetPhoneNumberAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var elasticUserPhone = user.Phone;
-
-			return elasticUserPhone != null
-				? Task.FromResult( elasticUserPhone.Number )
-				: Task.FromResult<string>( null );
-		}
-
-		public Task<bool> GetPhoneNumberConfirmedAsync( TUser user )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var elasticUserPhone = user.Phone;
-
-			return elasticUserPhone != null
-				? Task.FromResult( elasticUserPhone.IsConfirmed )
-				: Task.FromResult( false );
-		}
-
-		public Task SetPhoneNumberConfirmedAsync( TUser user, bool confirmed )
-		{
-			if( user == null ) throw new ArgumentNullException( "user" );
-			var elasticUserPhone = user.Phone;
-			if( elasticUserPhone != null )
-				elasticUserPhone.IsConfirmed = true;
-			else throw new InvalidOperationException( "User have no configured phone number" );
-			return DoneTask;
-		}
-	}
-
-	public abstract class ElasticUserStore
-	{
-		protected static readonly Task DoneTask = Task.FromResult( true );
-		protected const int DefaultSizeForAll = 1000*1000;
-
-	    protected static readonly Regex _indexNameValidationRegex = new Regex( "^[\\[\\]a-z0-9-_\\.]+$", RegexOptions.Singleline | RegexOptions.CultureInvariant | RegexOptions.Compiled );
-        public event EventHandler<ElasticUserStoreTraceEventArgs> Trace;
-
-		protected virtual void OnTrace( IApiCallDetails callDetails )
-		{
-			var trace = Trace;
-            trace?.Invoke( this, new ElasticUserStoreTraceEventArgs( callDetails.DebugInformation ) );
+        public Task SetTwoFactorEnabledAsync(TUser user, bool enabled)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.TwoFactorAuthenticationEnabled = enabled;
+            return DoneTask;
         }
 
-		protected T Wrap<T>( T result ) where T : IResponse
-		{
-			var c = result.ApiCall;
-			OnTrace( c );
-			return result;
-		}
-	}
+        public Task<bool> GetTwoFactorEnabledAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.TwoFactorAuthenticationEnabled);
+        }
+
+        public Task SetEmailAsync(TUser user, string email)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.Email = email == null
+                ? null
+                : new ElasticUserEmail { Address = email };
+            return DoneTask;
+        }
+
+        public Task<string> GetEmailAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var elasticUserEmail = user.Email;
+
+            return elasticUserEmail != null
+                ? Task.FromResult(elasticUserEmail.Address)
+                : Task.FromResult<string>(null);
+        }
+
+        public Task<bool> GetEmailConfirmedAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var elasticUserEmail = user.Email;
+
+            return elasticUserEmail != null
+                ? Task.FromResult(elasticUserEmail.IsConfirmed)
+                : Task.FromResult(false);
+        }
+
+        public Task SetEmailConfirmedAsync(TUser user, bool confirmed)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var elasticUserEmail = user.Email;
+            if (elasticUserEmail != null)
+                elasticUserEmail.IsConfirmed = true;
+            else throw new InvalidOperationException("User have no configured email address");
+            return DoneTask;
+        }
+
+        public Task SetPhoneNumberAsync(TUser user, string phoneNumber)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.Phone = phoneNumber == null
+                ? null
+                : new ElasticUserPhone { Number = phoneNumber };
+            return DoneTask;
+        }
+
+        public Task<string> GetPhoneNumberAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var elasticUserPhone = user.Phone;
+
+            return elasticUserPhone != null
+                ? Task.FromResult(elasticUserPhone.Number)
+                : Task.FromResult<string>(null);
+        }
+
+        public Task<bool> GetPhoneNumberConfirmedAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var elasticUserPhone = user.Phone;
+
+            return elasticUserPhone != null
+                ? Task.FromResult(elasticUserPhone.IsConfirmed)
+                : Task.FromResult(false);
+        }
+
+        public Task SetPhoneNumberConfirmedAsync(TUser user, bool confirmed)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            var elasticUserPhone = user.Phone;
+            if (elasticUserPhone != null)
+                elasticUserPhone.IsConfirmed = true;
+            else throw new InvalidOperationException("User have no configured phone number");
+            return DoneTask;
+        }
+    }
+
+    public abstract class ElasticUserStore
+    {
+        protected static readonly Task DoneTask = Task.FromResult(true);
+        protected const int DefaultSizeForAll = 1000 * 1000;
+
+        public event EventHandler<ElasticUserStoreTraceEventArgs> Trace;
+
+        protected virtual void OnTrace(IApiCallDetails callDetails)
+        {
+            var trace = Trace;
+            trace?.Invoke(this, new ElasticUserStoreTraceEventArgs(callDetails.DebugInformation));
+        }
+
+        protected T Wrap<T>(T result) where T : IResponse
+        {
+            var c = result.ApiCall;
+            OnTrace(c);
+            return result;
+        }
+    }
 }
