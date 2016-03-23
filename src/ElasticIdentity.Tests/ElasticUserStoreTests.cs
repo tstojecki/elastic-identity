@@ -84,9 +84,9 @@ namespace ElasticIdentity.Tests
 		}
 
 		[Fact]
-		public async Task MissingUserShouldBeNull()
+		public async Task MissingUserShouldBeNullWhenThrowExceptionsOff()
 		{
-            using (var store = new UserStoreFixture<ElasticUser>())
+            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, false))
             {
                 // should not throw when 404 is returned, it should return null instead to indicate resource not found
                 var user404 = await store.FindByIdAsync("missing");
@@ -166,7 +166,7 @@ namespace ElasticIdentity.Tests
                 // exception should be thrown as we're attempting to
                 // update the original, out of date, user.
                 user.Roles.Add("bad_role");
-                await Assert.ThrowsAsync<Exception>(async () => await store.UpdateAsync(user));
+                await Assert.ThrowsAsync<Elasticsearch.Net.ElasticsearchClientException>(async () => await store.UpdateAsync(user));
             }
 		}
 
@@ -175,24 +175,17 @@ namespace ElasticIdentity.Tests
         {
             var indexName = "custom-index";
 
-            using (var store = new UserStoreFixture<ExtendedUser>(ElasticServerUrl, indexName, true))
+            using (var store = new UserStoreFixture<ExtendedUser>(ElasticServerUrl, indexName, true, true))
             {
-                try
-                {
-                    var user = new ExtendedUser { UserName = "elonmusk" };
-                    user.Roles.UnionWith(new[] { "hello" });
+                var user = new ExtendedUser { UserName = "elonmusk" };
+                user.Roles.UnionWith(new[] { "hello" });
 
-                    await store.CreateAsync(user);
+                await store.CreateAsync(user);
 
-                    var response = store.ElasticClient.Get<ExtendedUser>(new GetRequest(indexName, TypeName.From<ExtendedUser>(), user.Id));
+                var response = store.ElasticClient.Get<ExtendedUser>(new GetRequest(indexName, TypeName.From<ExtendedUser>(), user.Id));
 
-                    Assert.NotNull(response.Source);
-                    Assert.Equal(response.Source.UserName, user.UserName);
-                }
-                finally
-                {
-                    store.ElasticClient.DeleteIndex(new DeleteIndexRequest(indexName));
-                }
+                Assert.NotNull(response.Source);
+                Assert.Equal(response.Source.UserName, user.UserName);
             }
         }
 
@@ -237,13 +230,14 @@ namespace ElasticIdentity.Tests
         class UserStoreFixture<TUser> : ElasticUserStore<TUser> where TUser : ElasticUser
         {
             public UserStoreFixture()
-                : this(ElasticServerUrl, "elasticidentity-tests", true)
+                : this(ElasticServerUrl, "elasticidentity-tests", true, true)
             {
             }
 
-            public UserStoreFixture(string url, string index, bool forceRecreate)
+            public UserStoreFixture(string url, string index, bool forceRecreate, bool throwExceptions)
                 : base(new ElasticClient(new ConnectionSettings(new Uri(url))
-                    .MapDefaultTypeIndices(x => x.Add(typeof(TUser), index))), index, false)
+                    .MapDefaultTypeIndices(x => x.Add(typeof(TUser), index))
+                    .ThrowExceptions(throwExceptions)), index, forceRecreate)
             {
                 Index = index;
             }
