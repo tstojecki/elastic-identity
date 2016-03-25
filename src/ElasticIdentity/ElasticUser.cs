@@ -106,12 +106,9 @@ namespace ElasticIdentity
         ///     Convenience property
         /// </summary>
         [JsonIgnore]
-		public string EmailAddress
-		{
-			get { return Email?.Address; }
-		}
+		public string EmailAddress => Email?.Address;
 
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+	    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public DateTimeOffset LockoutEndDate { get; set; }
 
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
