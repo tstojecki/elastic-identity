@@ -268,11 +268,13 @@ namespace ElasticIdentity
             if (r == null)
                 return null;
 
-            // ToDo: Fix these
-            // ReSharper disable once PossibleNullReferenceException
-            // ReSharper disable once PossibleInvalidOperationException
-            r.Version = result.Hits.FirstOrDefault().Version.Value;
-            r.Id = result.Hits.FirstOrDefault()?.Id;
+            // Add version and ID from the hit.
+            var hit = result.Hits.FirstOrDefault();
+            if (hit == null) return null;
+            if (hit.Version != null)
+                r.Version = hit.Version.Value;
+            if (hit.Id != null)
+                r.Id = hit.Id;
 
             return r;
         }
