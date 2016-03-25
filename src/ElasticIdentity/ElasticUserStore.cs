@@ -47,7 +47,8 @@ namespace ElasticIdentity
         IUserSecurityStampStore<TUser>,
         IUserTwoFactorStore<TUser, string>,
         IUserEmailStore<TUser, string>,
-        IUserPhoneNumberStore<TUser, string>
+        IUserPhoneNumberStore<TUser, string>,
+        IUserLockoutStore<TUser, string>
         where TUser : ElasticUser
     {
         private readonly Lazy<IElasticClient> _client;
@@ -521,6 +522,51 @@ namespace ElasticIdentity
             if (elasticUserPhone != null)
                 elasticUserPhone.IsConfirmed = true;
             else throw new InvalidOperationException("User have no configured phone number");
+            return DoneTask;
+        }
+
+        public Task<DateTimeOffset> GetLockoutEndDateAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            return Task.FromResult(user.LockoutEndDate);
+        }
+
+        public Task SetLockoutEndDateAsync(TUser user, DateTimeOffset lockoutEnd)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            user.LockoutEndDate = lockoutEnd;
+            return DoneTask;
+        }
+
+        public Task<int> IncrementAccessFailedCountAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            return Task.FromResult(user.AccessFailedCount++);
+        }
+
+        public Task ResetAccessFailedCountAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            user.AccessFailedCount = 0;
+            return DoneTask;
+        }
+
+        public Task<int> GetAccessFailedCountAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            return Task.FromResult(user.AccessFailedCount);
+        }
+
+        public Task<bool> GetLockoutEnabledAsync(TUser user)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            return Task.FromResult(user.Enabled);
+        }
+
+        public Task SetLockoutEnabledAsync(TUser user, bool enabled)
+        {
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            user.Enabled = enabled;
             return DoneTask;
         }
     }

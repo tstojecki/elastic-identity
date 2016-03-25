@@ -102,15 +102,23 @@ namespace ElasticIdentity
 		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
 		public ElasticUserPhone Phone { get; set; }
 
-
-		/// <summary>
-		///     Convenience property
-		/// </summary>
-		[JsonIgnore]
+        /// <summary>
+        ///     Convenience property
+        /// </summary>
+        [JsonIgnore]
 		public string EmailAddress
 		{
 			get { return Email?.Address; }
 		}
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public DateTimeOffset LockoutEndDate { get; set; }
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public int AccessFailedCount { get; set; }
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool Enabled { get; set; }
 
         [Boolean( DocValues = true, NullValue = false )]
         [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
