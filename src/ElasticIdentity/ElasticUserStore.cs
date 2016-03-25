@@ -28,7 +28,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Elasticsearch.Net;
@@ -53,13 +52,7 @@ namespace ElasticIdentity
     {
         private readonly Lazy<IElasticClient> _client;
 
-        protected virtual IElasticClient Client
-        {
-            get
-            {
-                return _client.Value;
-            }
-        }
+        protected virtual IElasticClient Client => _client.Value;
 
         protected virtual bool IndexCreated
         {
@@ -160,7 +153,7 @@ namespace ElasticIdentity
 
         private async Task CreateOrUpdateAsync(TUser user, bool create)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             
             // We need to specify op_type as we are generating the ID (guid) in code.
             // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html
@@ -281,8 +274,8 @@ namespace ElasticIdentity
 
         public Task AddLoginAsync(TUser user, UserLoginInfo login)
         {
-            if (user == null) throw new ArgumentNullException("user");
-            if (login == null) throw new ArgumentNullException("login");
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            if (login == null) throw new ArgumentNullException(nameof(login));
 
             user.Logins.Add(new ElasticUserLoginInfo
             {
@@ -294,15 +287,15 @@ namespace ElasticIdentity
 
         public Task RemoveLoginAsync(TUser user, UserLoginInfo login)
         {
-            if (user == null) throw new ArgumentNullException("user");
-            if (login == null) throw new ArgumentNullException("login");
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            if (login == null) throw new ArgumentNullException(nameof(login));
             user.Logins.RemoveAll(x => x.LoginProvider == login.LoginProvider && x.ProviderKey == login.ProviderKey);
             return DoneTask;
         }
 
         public Task<IList<UserLoginInfo>> GetLoginsAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             return Task.FromResult<IList<UserLoginInfo>>(user
                 .Logins
                 .Select(x => new UserLoginInfo(x.LoginProvider, x.ProviderKey))
@@ -346,7 +339,7 @@ namespace ElasticIdentity
 
         public Task<IList<Claim>> GetClaimsAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var result = (IList<Claim>)user
                 .Claims
                 .Select(x => x.AsClaim())
@@ -356,79 +349,79 @@ namespace ElasticIdentity
 
         public Task AddClaimAsync(TUser user, Claim claim)
         {
-            if (user == null) throw new ArgumentNullException("user");
-            if (claim == null) throw new ArgumentNullException("claim");
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            if (claim == null) throw new ArgumentNullException(nameof(claim));
             user.Claims.Add(claim);
             return DoneTask;
         }
 
         public Task RemoveClaimAsync(TUser user, Claim claim)
         {
-            if (user == null) throw new ArgumentNullException("user");
-            if (claim == null) throw new ArgumentNullException("claim");
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            if (claim == null) throw new ArgumentNullException(nameof(claim));
             user.Claims.Remove(claim);
             return DoneTask;
         }
 
         public Task AddToRoleAsync(TUser user, string role)
         {
-            if (user == null) throw new ArgumentNullException("user");
-            if (role == null) throw new ArgumentNullException("role");
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            if (role == null) throw new ArgumentNullException(nameof(role));
             user.Roles.Add(role);
             return DoneTask;
         }
 
         public Task RemoveFromRoleAsync(TUser user, string role)
         {
-            if (user == null) throw new ArgumentNullException("user");
-            if (role == null) throw new ArgumentNullException("role");
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            if (role == null) throw new ArgumentNullException(nameof(role));
             user.Roles.Remove(role);
             return DoneTask;
         }
 
         public Task<IList<string>> GetRolesAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var result = user.Roles.ToList();
             return Task.FromResult((IList<string>)result);
         }
 
         public Task<bool> IsInRoleAsync(TUser user, string role)
         {
-            if (user == null) throw new ArgumentNullException("user");
-            if (role == null) throw new ArgumentNullException("role");
+            if (user == null) throw new ArgumentNullException(nameof(user));
+            if (role == null) throw new ArgumentNullException(nameof(role));
             return Task.FromResult(user.Roles.Contains(role));
         }
 
         public Task SetPasswordHashAsync(TUser user, string passwordHash)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             user.PasswordHash = passwordHash;
             return DoneTask;
         }
 
         public Task<string> GetPasswordHashAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             return Task.FromResult(user.PasswordHash);
         }
 
         public Task<bool> HasPasswordAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             return Task.FromResult(user.PasswordHash != null);
         }
 
         public Task SetSecurityStampAsync(TUser user, string stamp)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             user.SecurityStamp = stamp;
             return DoneTask;
         }
 
         public Task<string> GetSecurityStampAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             return Task.FromResult(user.SecurityStamp);
         }
 
@@ -443,20 +436,20 @@ namespace ElasticIdentity
 
         public Task SetTwoFactorEnabledAsync(TUser user, bool enabled)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             user.TwoFactorAuthenticationEnabled = enabled;
             return DoneTask;
         }
 
         public Task<bool> GetTwoFactorEnabledAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             return Task.FromResult(user.TwoFactorAuthenticationEnabled);
         }
 
         public Task SetEmailAsync(TUser user, string email)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             user.Email = email == null
                 ? null
                 : new ElasticUserEmail { Address = email };
@@ -465,7 +458,7 @@ namespace ElasticIdentity
 
         public Task<string> GetEmailAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var elasticUserEmail = user.Email;
 
             return elasticUserEmail != null
@@ -475,7 +468,7 @@ namespace ElasticIdentity
 
         public Task<bool> GetEmailConfirmedAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var elasticUserEmail = user.Email;
 
             return elasticUserEmail != null
@@ -485,7 +478,7 @@ namespace ElasticIdentity
 
         public Task SetEmailConfirmedAsync(TUser user, bool confirmed)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var elasticUserEmail = user.Email;
             if (elasticUserEmail != null)
                 elasticUserEmail.IsConfirmed = true;
@@ -495,7 +488,7 @@ namespace ElasticIdentity
 
         public Task SetPhoneNumberAsync(TUser user, string phoneNumber)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             user.Phone = phoneNumber == null
                 ? null
                 : new ElasticUserPhone { Number = phoneNumber };
@@ -504,7 +497,7 @@ namespace ElasticIdentity
 
         public Task<string> GetPhoneNumberAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var elasticUserPhone = user.Phone;
 
             return elasticUserPhone != null
@@ -514,7 +507,7 @@ namespace ElasticIdentity
 
         public Task<bool> GetPhoneNumberConfirmedAsync(TUser user)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var elasticUserPhone = user.Phone;
 
             return elasticUserPhone != null
@@ -524,7 +517,7 @@ namespace ElasticIdentity
 
         public Task SetPhoneNumberConfirmedAsync(TUser user, bool confirmed)
         {
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException(nameof(user));
             var elasticUserPhone = user.Phone;
             if (elasticUserPhone != null)
                 elasticUserPhone.IsConfirmed = true;
