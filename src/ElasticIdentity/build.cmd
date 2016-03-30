@@ -21,7 +21,7 @@ REM		COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHET
 REM		IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 REM		CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-set outputPath=..\..\packages\elastic-identity
+set outputPath=..\..\packages\elasticidentity
 
 mkdir %outputPath%
-nuget pack -Verbosity detailed -Symbols -Build -OutputDirectory %outputPath%
+nuget pack ElasticIdentity.nuspec -Verbosity detailed -Symbols -Build -OutputDirectory %outputPath%
