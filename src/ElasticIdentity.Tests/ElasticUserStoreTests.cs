@@ -35,7 +35,7 @@ namespace ElasticIdentity.Tests
 {
 	public class ElasticUserStoreTests
 	{
-        const string ElasticServerUrl = "http://localhost:9200";
+        const string ElasticServerUrl = "http://localhost:9210";
         const string UserName = "testuser";
 
         [Fact]

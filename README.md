@@ -48,64 +48,25 @@ Simple
 ------
 
 ```csharp
-new ElasticUserStore<ElasticUser>( new Uri( "http://localhost:9200/" ) );
+new ElasticUserStore<ElasticUser>(new Uri("http://localhost:9200/"));
 ```
 
-With AutoFac
-------------
+or if you have configured an instance of ElasticClient somewehere else
 
 ```csharp
-builder.Register( c => new ElasticUserStore<ElasticUser>( Settings.Default.UserServer ) )
-	.AsSelf()
-	.AsImplementedInterfaces()
-	.SingleInstance();
+new ElasticUserStore<ElasticUser>(elasticClient);
 ```
 
-You should probably consume IUserStore<ElasticUser> in your code
-
-
-Let's seed the user store if the index is created
+Ensure index
 -------------------------------------------------
+Elastic identity will check if the index exists and create it if it isn't. 
+You can also specify forceRecreate to true in the ctor to delete the index if it exists.
 
 ```csharp
-
-public class MyElasticUserStore<TUser> : ElasticUserStore<TUser>
-{
-  public MyElasticUserStore( Uri connectionString ) : base( connectionString )
-  {
-  }
-  
-  static readonly string[] _roles =
-  {
-    "Admin", 
-    "User", 
-    ...
-  };
-
-  const string _seedUser = "elonmusk";
-  const string _seedPassword = "tesla";
-
-  protected override async Task SeedAsync()
-  {
-    var user = new ElasticUser {
-      UserName = _seedUser
-    };
-    user.Roles.UnionWith( _roles );
-
-    var userManager = new UserManager<ElasticUser>( this );
-    await userManager.CreateAsync( user, _seedPassword );
-  }
-}
-
-
-builder.Register( c => new MyElasticUserStore<ElasticUser>( Settings.Default.UserServer ) )
-	.AsSelf()
-	.AsImplementedInterfaces()
-	.SingleInstance();
+new ElasticUserStore<ElasticUser>(elasticClient, "users-index", true);
 ```
 
-
-Extend the user
+Extend user
 ---------------
 
 ```csharp
@@ -123,29 +84,12 @@ public class MyUser : ElasticUser
 }
 
 
-new ElasticUserStore<MyUser>( new Uri( "http://localhost:9200/" ) );
+new ElasticUserStore<MyUser>(new Uri("http://localhost:9200/"));
 ```
 
 More samples and documentation
 ------------------------------
-
-The code is pretty tiny, so go ahead and explore the source code to find out what's possible.
-Also, check out the options of the ElasticUserStore constructor
-
-```csharp
-ElasticUserStore( 
-	Uri connectionString,							// where's your elasticsearch. Something like http://localhost:9200/ or http://users.tesla-co.internal/
-	string indexName = "users",						// what index we're storing the users under. Defaults to "users"
-	bool forceRecreate = false						// if index exists, drop it before creating it again.
-	 )
-
-protected override async Task SeedAsync()
-{
-  // Put your seeding logic here, stuff that's 
-  // executed when the index is created 
-}
-
-```
+TBD...
 
 Contributing
 ------------
@@ -160,7 +104,8 @@ History
 -------
 The first version of the library was developed by [bmbsqd] (http://github.com/bmbsqd). 
 
-As of version 2.0.0, the ownership was transfered to [tstojecki]. Starting with version 2.0.0, a new package has been built and published up on nuget. The namespace and the assembly names were also changed to ElasticIdentity from Bmbsqd.ElasticIdentity.
+As of version 2.0.0, the ownership was transfered to [tstojecki]. 
+Starting with version 2.0.0, a new package has been built and published up on nuget. The namespace and the assembly names were also changed to ElasticIdentity from Bmbsqd.ElasticIdentity.
 The older version continues to be available on nuget and the source code on github.com/bmbsqd.
 
 Copyright and license
