@@ -35,7 +35,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Elasticsearch.Net, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Elasticsearch.Net.2.0.4\lib\net46\Elasticsearch.Net.dll</HintPath>
+      <HintPath>..\..\packages\Elasticsearch.Net.2.3.1\lib\net46\Elasticsearch.Net.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.AspNet.Identity.Core, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
@@ -44,7 +44,7 @@
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Nest, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\NEST.2.0.4\lib\net46\Nest.dll</HintPath>
+      <HintPath>..\..\packages\NEST.2.3.1\lib\net46\Nest.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -85,7 +85,9 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
