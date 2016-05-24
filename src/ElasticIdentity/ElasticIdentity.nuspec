@@ -4,10 +4,10 @@
 
 	<metadata>
 		<id>ElasticIdentity</id>
-		<version>2.0.0-alpha</version>
+		<version>2.0.1-alpha</version>
 		<title>Identity Provider for Elasticsearch</title>
-		<authors>bmbsqd</authors>
-		<owners>tstojecki</owners>
+		<authors>bmbsqd, tstojecki</authors>
+		<owners>bmbsqd, tstojecki</owners>
 		<description>Identity Provider for Elasticsearch</description>
 		<licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
 		<projectUrl>https://github.com/tstojecki/elastic-identity</projectUrl>
@@ -21,8 +21,8 @@
 			<group>
 				<dependency id="Microsoft.AspNet.Identity.Core" version="2.2.1" />
 				<dependency id="Newtonsoft.Json" version="8.0.2" />
-				<dependency id="Elasticsearch.Net" version="2.0.4" />
-				<dependency id="NEST" version="2.0.4" />
+				<dependency id="Elasticsearch.Net" version="2.3.1" />
+				<dependency id="NEST" version="2.3.1" />
 			</group>
 		</dependencies>
 	</metadata>
