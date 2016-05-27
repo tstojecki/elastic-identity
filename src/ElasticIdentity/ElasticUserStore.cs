@@ -54,17 +54,22 @@ namespace ElasticIdentity
 
         protected virtual IElasticClient Client => _client.Value;
 
-        protected virtual bool IndexCreated
-        {
-            get; set;
-        }
+        protected virtual bool IndexCreated { get; set; }
 
-        public ElasticUserStore(Uri elasticServerUri, string indexName = "users", bool forceRecreate = false)
+        /// <summary>
+        /// Gets or sets a value indicating whether the exceptions should be thrown for Find methods when user isn't found.
+        /// With the value of false (default) the exceptions will not be thrown regardless of the value of Client.ThrowExceptions. 
+        /// </summary>
+        public virtual bool ThrowExceptionsForNotFound { get; set; }
+
+        public ElasticUserStore(Uri elasticServerUri, string indexName = "users", bool forceRecreate = false, bool throwExceptionsForNotFound = false)
         {
             if (elasticServerUri == null)
             {
                 throw new ArgumentNullException(nameof(elasticServerUri));
             }
+
+            ThrowExceptionsForNotFound = throwExceptionsForNotFound;
 
             _client = new Lazy<IElasticClient>(() =>
             {
@@ -83,12 +88,14 @@ namespace ElasticIdentity
             });
         }
 
-        public ElasticUserStore(IElasticClient client, string indexName = "users", bool forceRecreate = false)
+        public ElasticUserStore(IElasticClient client, string indexName = "users", bool forceRecreate = false, bool throwExceptionsForNotFound = false)
         {
             if (client == null)
             {
                 throw new ArgumentNullException(nameof(client));
             }
+
+            ThrowExceptionsForNotFound = throwExceptionsForNotFound;
 
             _client = new Lazy<IElasticClient>(() =>
             {
@@ -156,7 +163,7 @@ namespace ElasticIdentity
             if (create)
             {
                 Wrap(await Client.IndexAsync(user, x => x
-                  .OpType(OpType.Create)      // Fail if a document with the ID provided already exists.
+                  .OpType(OpType.Create)
                   .Consistency(Consistency.Quorum)
                   .Refresh()));
             }
@@ -172,20 +179,14 @@ namespace ElasticIdentity
 
         public Task CreateAsync(TUser user)
         {
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
+            if (user == null) throw new ArgumentNullException(nameof(user));
 
             return CreateOrUpdateAsync(user, true);
         }
 
         public Task UpdateAsync(TUser user)
         {
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
+            if (user == null) throw new ArgumentNullException(nameof(user));
 
             if (string.IsNullOrEmpty(user.Id))
             {
@@ -198,89 +199,125 @@ namespace ElasticIdentity
         public async Task DeleteAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             Wrap(await Client.DeleteAsync(DocumentPath<TUser>.Id(user.Id), d => d
-            .Consistency(Consistency.Quorum)
-            .Version(user.Version)
-            .Refresh()));
+                .Consistency(Consistency.Quorum)
+                .Version(user.Version)
+                .Refresh()));
         }
 
         public async Task<TUser> FindByIdAsync(string userId)
         {
             if (userId == null) throw new ArgumentNullException(nameof(userId));
-            var result = Wrap(await Client.GetAsync(DocumentPath<TUser>.Id(userId)));
 
-            if (!result.IsValid || !result.Found)
-                return null;
+            return await RunFindRequestAsync(async () =>
+            {
+                var result = await Client.GetAsync(DocumentPath<TUser>.Id(userId));
 
-            var r = result.Source;
-            r.Version = result.Version;
-            r.Id = result.Id;
-            return r;
+                if (!result.IsValid || !result.Found)
+                    return null;
+
+                var user = result.Source;
+                user.Id = result.Id;
+                user.Version = result.Version;
+
+                return user;
+            });
         }
 
         public async Task<TUser> FindByNameAsync(string userName)
         {
-            if (userName == null)
-                throw new ArgumentNullException(nameof(userName));
+            if (string.IsNullOrEmpty(userName)) throw new ArgumentNullException(nameof(userName));
 
-            var result = Wrap(await Client.SearchAsync<TUser>(s => s
-              .Version(true)      // Bug: This is default, but we only get version if we set this. Need to file.
-              .Query(q => q
-                 .Bool(b => b
-                    .Filter(f => f
-                       .Term(t => t
-                          .Field(tf => tf.UserName)
-                          .Value(userName.ToLowerInvariant())))))));
+            return await RunFindRequestAsync(async () =>
+            {
+                var result = await Client.SearchAsync<TUser>(s => s
+                    .Version(true)
+                    .Query(q => q
+                        .Bool(b => b
+                            .Filter(f => f
+                                .Term(t => t
+                                    .Field(tf => tf.UserName)
+                                    .Value(userName.ToLowerInvariant()))))));
 
-            if (!result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any())
-                return null;
-
-            var r = result.Documents.FirstOrDefault();
-
-            if (r == null)
-                return null;
-
-            // Add version and ID from the hit.
-            var hit = result.Hits.FirstOrDefault();
-            if (hit == null) return null;
-            if (hit.Version != null)
-                r.Version = hit.Version.Value;
-            if (hit.Id != null)
-                r.Id = hit.Id;
-
-            return r;
+                return ProcessSearchResponse(result);
+            });
         }
 
         public async Task<TUser> FindByEmailAsync(string email)
         {
             if (email == null) throw new ArgumentNullException(nameof(email));
-            
-            var result = Wrap(await Client.SearchAsync<TUser>(s => s
-              .Version(true)      // Bug: This is default, but we only get version if we set this. Need to file.
-              .Query(q => q
-                 .Bool(b => b
-                    .Filter(f => f
-                       .Term(t => t
-                          .Field(tf => tf.Email.Address)
-                          .Value(email)))))));
 
-            if (!result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any())
-                return null;
+            return await RunFindRequestAsync(async () =>
+            {
+                var result = Wrap(await Client.SearchAsync<TUser>(s => s
+                    .Version(true)
+                    .Query(q => q
+                        .Bool(b => b
+                            .Filter(f => f
+                                .Term(t => t
+                                    .Field(tf => tf.Email.Address)
+                                    .Value(email.ToLowerInvariant())))))));
 
-            var r = result.Documents.FirstOrDefault();
+                return ProcessSearchResponse(result);
+            });
+        }
 
-            if (r == null)
-                return null;
+        public async Task<TUser> FindAsync(UserLoginInfo login)
+        {
+            if (login == null) throw new ArgumentNullException(nameof(login));
 
-            // Add version and ID from the hit.
+            return await RunFindRequestAsync(async () =>
+            {
+                var result = Wrap(await Client.SearchAsync<TUser>(s => s
+                    .Query(q => q
+                        .Bool(b => b
+                        .Filter(f =>
+                            f.Term(t1 => t1
+                                .Field(tf1 => tf1.Logins.First().LoginProvider)
+                                .Value(login.LoginProvider))
+                            &&
+                            f.Term(t2 => t2
+                                .Field(tf2 => tf2.Logins.First().ProviderKey)
+                                .Value(login.ProviderKey)))))));
+
+                return ProcessSearchResponse(result);
+            });
+        }
+
+        private async Task<TUser> RunFindRequestAsync(Func<Task<TUser>> func)
+        {
+            try
+            {
+                return await func();
+            }
+            catch (ElasticsearchClientException ex)
+            {
+                if (ex.Response.HttpStatusCode == 404)
+                {
+                    if (!ThrowExceptionsForNotFound)
+                    {
+                        return null;
+                    }
+                }
+
+                throw;
+            }
+        }
+
+        private TUser ProcessSearchResponse(ISearchResponse<TUser> result)
+        {
+            if (!result.IsValid || result.TerminatedEarly || result.TimedOut) return null;
+
+            var user = result.Documents.FirstOrDefault();
             var hit = result.Hits.FirstOrDefault();
-            if (hit == null) return null;
-            if (hit.Version != null)
-                r.Version = hit.Version.Value;
-            if (hit.Id != null)
-                r.Id = hit.Id;
 
-            return r;
+            if (user == null || hit == null) return null;
+
+            user.Id = hit.Id;
+            user.Version = hit.Version.GetValueOrDefault();
+
+            return user;
         }
 
         public Task AddLoginAsync(TUser user, UserLoginInfo login)
@@ -300,6 +337,7 @@ namespace ElasticIdentity
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
             if (login == null) throw new ArgumentNullException(nameof(login));
+
             user.Logins.RemoveAll(x => x.LoginProvider == login.LoginProvider && x.ProviderKey == login.ProviderKey);
             return DoneTask;
         }
@@ -307,50 +345,17 @@ namespace ElasticIdentity
         public Task<IList<UserLoginInfo>> GetLoginsAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult<IList<UserLoginInfo>>(user
                 .Logins
                 .Select(x => new UserLoginInfo(x.LoginProvider, x.ProviderKey))
                 .ToList());
         }
 
-        public async Task<TUser> FindAsync(UserLoginInfo login)
-        {
-            if (login == null) throw new ArgumentNullException(nameof(login));
-            
-            var result = Wrap(await Client.SearchAsync<TUser>(s => s
-              .Query(q => q
-                 .Bool(b => b
-                    .Filter(f =>
-                       f.Term(t1 => t1
-                          .Field(tf1 => tf1.Logins.First().LoginProvider)
-                          .Value(login.LoginProvider))
-                       &&
-                       f.Term(t2 => t2
-                          .Field(tf2 => tf2.Logins.First().ProviderKey)
-                          .Value(login.ProviderKey)))))));
-
-            if (!result.IsValid || result.TerminatedEarly || result.TimedOut || !result.Documents.Any())
-                return null;
-
-            var r = result.Documents.FirstOrDefault();
-
-            if (r == null)
-                return null;
-
-            // Add version and ID from the hit.
-            var hit = result.Hits.FirstOrDefault();
-            if (hit == null) return null;
-            if (hit.Version != null)
-                r.Version = hit.Version.Value;
-            if (hit.Id != null)
-                r.Id = hit.Id;
-
-            return r;
-        }
-
         public Task<IList<Claim>> GetClaimsAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             var result = (IList<Claim>)user
                 .Claims
                 .Select(x => x.AsClaim())
@@ -362,6 +367,7 @@ namespace ElasticIdentity
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
             if (claim == null) throw new ArgumentNullException(nameof(claim));
+
             user.Claims.Add(claim);
             return DoneTask;
         }
@@ -370,6 +376,7 @@ namespace ElasticIdentity
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
             if (claim == null) throw new ArgumentNullException(nameof(claim));
+
             user.Claims.Remove(claim);
             return DoneTask;
         }
@@ -378,6 +385,7 @@ namespace ElasticIdentity
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
             if (role == null) throw new ArgumentNullException(nameof(role));
+
             user.Roles.Add(role);
             return DoneTask;
         }
@@ -386,6 +394,7 @@ namespace ElasticIdentity
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
             if (role == null) throw new ArgumentNullException(nameof(role));
+
             user.Roles.Remove(role);
             return DoneTask;
         }
@@ -393,6 +402,7 @@ namespace ElasticIdentity
         public Task<IList<string>> GetRolesAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             var result = user.Roles.ToList();
             return Task.FromResult((IList<string>)result);
         }
@@ -401,12 +411,14 @@ namespace ElasticIdentity
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
             if (role == null) throw new ArgumentNullException(nameof(role));
+
             return Task.FromResult(user.Roles.Contains(role));
         }
 
         public Task SetPasswordHashAsync(TUser user, string passwordHash)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.PasswordHash = passwordHash;
             return DoneTask;
         }
@@ -414,18 +426,21 @@ namespace ElasticIdentity
         public Task<string> GetPasswordHashAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.PasswordHash);
         }
 
         public Task<bool> HasPasswordAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.PasswordHash != null);
         }
 
         public Task SetSecurityStampAsync(TUser user, string stamp)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.SecurityStamp = stamp;
             return DoneTask;
         }
@@ -433,6 +448,7 @@ namespace ElasticIdentity
         public Task<string> GetSecurityStampAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.SecurityStamp);
         }
 
@@ -448,6 +464,7 @@ namespace ElasticIdentity
         public Task SetTwoFactorEnabledAsync(TUser user, bool enabled)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.TwoFactorAuthenticationEnabled = enabled;
             return DoneTask;
         }
@@ -455,12 +472,14 @@ namespace ElasticIdentity
         public Task<bool> GetTwoFactorEnabledAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.TwoFactorAuthenticationEnabled);
         }
 
         public Task SetEmailAsync(TUser user, string email)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.Email = email == null
                 ? null
                 : new ElasticUserEmail { Address = email };
@@ -470,6 +489,7 @@ namespace ElasticIdentity
         public Task<string> GetEmailAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             var elasticUserEmail = user.Email;
 
             return elasticUserEmail != null
@@ -480,6 +500,7 @@ namespace ElasticIdentity
         public Task<bool> GetEmailConfirmedAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             var elasticUserEmail = user.Email;
 
             return elasticUserEmail != null
@@ -490,6 +511,7 @@ namespace ElasticIdentity
         public Task SetEmailConfirmedAsync(TUser user, bool confirmed)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             var elasticUserEmail = user.Email;
             if (elasticUserEmail != null)
                 elasticUserEmail.IsConfirmed = true;
@@ -500,6 +522,7 @@ namespace ElasticIdentity
         public Task SetPhoneNumberAsync(TUser user, string phoneNumber)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.Phone = phoneNumber == null
                 ? null
                 : new ElasticUserPhone { Number = phoneNumber };
@@ -509,6 +532,7 @@ namespace ElasticIdentity
         public Task<string> GetPhoneNumberAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             var elasticUserPhone = user.Phone;
 
             return elasticUserPhone != null
@@ -519,6 +543,7 @@ namespace ElasticIdentity
         public Task<bool> GetPhoneNumberConfirmedAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             var elasticUserPhone = user.Phone;
 
             return elasticUserPhone != null
@@ -529,22 +554,23 @@ namespace ElasticIdentity
         public Task SetPhoneNumberConfirmedAsync(TUser user, bool confirmed)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
-            var elasticUserPhone = user.Phone;
-            if (elasticUserPhone != null)
-                elasticUserPhone.IsConfirmed = true;
-            else throw new InvalidOperationException("User have no configured phone number");
+            if (user.Phone == null) throw new ArgumentNullException("TUser.Phone");
+
+            user.Phone.IsConfirmed = true;
             return DoneTask;
         }
 
         public Task<DateTimeOffset> GetLockoutEndDateAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.LockoutEndDate);
         }
 
         public Task SetLockoutEndDateAsync(TUser user, DateTimeOffset lockoutEnd)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.LockoutEndDate = lockoutEnd;
             return DoneTask;
         }
@@ -552,12 +578,14 @@ namespace ElasticIdentity
         public Task<int> IncrementAccessFailedCountAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.AccessFailedCount++);
         }
 
         public Task ResetAccessFailedCountAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.AccessFailedCount = 0;
             return DoneTask;
         }
@@ -565,18 +593,21 @@ namespace ElasticIdentity
         public Task<int> GetAccessFailedCountAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.AccessFailedCount);
         }
 
         public Task<bool> GetLockoutEnabledAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             return Task.FromResult(user.Enabled);
         }
 
         public Task SetLockoutEnabledAsync(TUser user, bool enabled)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
+
             user.Enabled = enabled;
             return DoneTask;
         }

@@ -31,6 +31,7 @@ using System.Threading.Tasks;
 using Nest;
 using Xunit;
 using Elasticsearch.Net;
+using System.Threading;
 
 namespace ElasticIdentity.Tests
 {
@@ -143,18 +144,80 @@ namespace ElasticIdentity.Tests
 		}
 
 		[Fact]
-		public async Task MissingUserShouldBeNullWhenThrowExceptionsOff()
+		public async Task UserNotFoundShouldReturnNullWhenThrowExceptionsOff()
 		{
-            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, false))
+            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, false, false))
             {
-                // should not throw when 404 is returned, it should return null instead to indicate resource not found
-                var user404 = await store.FindByIdAsync("missing");
+                var user404 = await With503RetryForIndexRecovery(async () => await store.FindByIdAsync("missing"), 5);
 
                 Assert.Null(user404);
             }
 		}
 
-		[Fact]
+        [Fact]
+        public async Task UserNotFoundShouldReturnNullWhenThrowExceptionsForNotFoundOffAndThrowExceptionsOn()
+        {
+            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, true, false))
+            {
+                var user404 = await With503RetryForIndexRecovery(async () => await store.FindByIdAsync("missing"), 5);
+
+                Assert.Null(user404);
+            }
+        }
+
+        private async Task<ElasticUser> With503RetryForIndexRecovery(Func<Task<ElasticUser>> func, int maxRetries)
+        {
+            // every test starts by recreating an index in a lazy fashion
+            // between the time the index gets to a post recovery stage and the query comes in, 503 errors might be returned
+
+            if (maxRetries <= 0) maxRetries = 1;
+            var attempt = 0;
+
+            while (attempt <= maxRetries)
+            {
+                attempt++;
+
+                try
+                {
+                    return await func();
+                }
+                catch (ElasticsearchClientException ex)
+                {
+                    if (ex.Response.HttpStatusCode != 503 || attempt == maxRetries)
+                    {
+                        throw;
+                    }
+
+                    Thread.Sleep(1000);
+                }
+            }
+
+            return null;
+        }
+
+        [Fact]
+        public async Task UserNotFoundShouldThrowWhenThrowExceptionsForNotFoundOn()
+        {
+            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, true, true))
+            {
+                bool threwNotFound = false;
+                try
+                {
+                    var user404 = await With503RetryForIndexRecovery(async () => await store.FindByIdAsync("missing"), 5);
+                }
+                catch (ElasticsearchClientException ex)
+                {
+                    if (ex.Response.HttpStatusCode == 404)
+                    {
+                        threwNotFound = true;
+                    }                    
+                }
+
+                Assert.True(threwNotFound);
+            }
+        }
+
+        [Fact]
 		public async Task FindByEmail()
 		{
             using (var store = new UserStoreFixture<ElasticUser>())
@@ -234,7 +297,7 @@ namespace ElasticIdentity.Tests
         {
             var indexName = "custom-index";
 
-            using (var store = new UserStoreFixture<ExtendedUser>(ElasticServerUrl, indexName, true, true))
+            using (var store = new UserStoreFixture<ExtendedUser>(ElasticServerUrl, indexName, true, true, false))
             {
                 var user = new ExtendedUser(UserId, UserName);
                 
@@ -288,16 +351,17 @@ namespace ElasticIdentity.Tests
         class UserStoreFixture<TUser> : ElasticUserStore<TUser> where TUser : ElasticUser
         {
             public UserStoreFixture()
-                : this(ElasticServerUrl, "elasticidentity-tests", true, true)
+                : this(ElasticServerUrl, "elasticidentity-tests", true, true, false)
             {
             }
 
-            public UserStoreFixture(string url, string index, bool forceRecreate, bool throwExceptions)
+            public UserStoreFixture(string url, string index, bool forceRecreate, bool throwExceptions, bool throwNotFoundExceptions)
                 : base(new ElasticClient(new ConnectionSettings(new Uri(url))
                     .MapDefaultTypeIndices(x => x.Add(typeof(TUser), index))
                     .ThrowExceptions(throwExceptions)), index, forceRecreate)
             {
                 Index = index;
+                ThrowExceptionsForNotFound = throwNotFoundExceptions;
             }
 
             public IElasticClient ElasticClient
