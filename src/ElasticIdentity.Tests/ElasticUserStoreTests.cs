@@ -30,21 +30,53 @@ using System.Linq;
 using System.Threading.Tasks;
 using Nest;
 using Xunit;
+using Elasticsearch.Net;
 
 namespace ElasticIdentity.Tests
 {
 	public class ElasticUserStoreTests
 	{
         const string ElasticServerUrl = "http://localhost:9200";
+        const string UserId = "1";
         const string UserName = "testuser";
 
         [Fact]
-		public async Task CreateUser()
+		public async Task CreateUserWithOwnId()
 		{
             using (var store = new UserStoreFixture<ElasticUser>())
             {
-                var user = new ElasticUser(UserName)
+                var user = new ElasticUser(UserId, UserName)
                 {
+                    Phone = new ElasticUserPhone
+                    {
+                        Number = "555 123 1234",
+                        IsConfirmed = true
+                    },
+                    Email = new ElasticUserEmail
+                    {
+                        Address = "hello@world.com",
+                        IsConfirmed = false
+                    }
+                };
+
+                await store.CreateAsync(user);
+
+                var elasticUser = await store.FindByNameAsync(UserName);
+                Assert.NotNull(elasticUser);
+                Assert.Equal(UserId, elasticUser.Id);
+                Assert.Equal(UserName, elasticUser.UserName);
+                Assert.NotNull(elasticUser.Version);
+            }
+		}
+
+        [Fact]
+        public async Task CreateUserWithElasticId()
+        {
+            using (var store = new UserStoreFixture<ElasticUser>())
+            {
+                var user = new ElasticUser()
+                {
+                    UserName = UserName,
                     Phone = new ElasticUserPhone
                     {
                         Number = "555 123 1234",
@@ -63,16 +95,43 @@ namespace ElasticIdentity.Tests
                 Assert.NotNull(elasticUser);
                 Assert.Equal(elasticUser.UserName, UserName);
                 Assert.NotNull(elasticUser.Id);
+                Assert.NotEqual(UserId, elasticUser.Id);
                 Assert.NotNull(elasticUser.Version);
             }
-		}
+        }
 
-		[Fact]
+        [Fact]
+        public async Task FailToCreateUserDueToExistingId()
+        {
+            using (var store = new UserStoreFixture<ElasticUser>())
+            {
+                var user = new ElasticUser(UserId, UserName);
+
+                await store.CreateAsync(user);
+
+                bool threwConflictException = false;
+                try
+                {
+                    await store.CreateAsync(user);
+                }
+                catch (ElasticsearchClientException ex)
+                {
+                    if (ex.Message.Contains("409"))
+                    {
+                        threwConflictException = true;
+                    }
+                }
+
+                Assert.True(threwConflictException);
+            }
+        }
+
+        [Fact]
 		public async Task FindById()
 		{
             using (var store = new UserStoreFixture<ElasticUser>())
             {
-                var user = new ElasticUser(UserName);
+                var user = new ElasticUser(UserId, UserName);
 
                 await store.CreateAsync(user);
 
@@ -100,7 +159,7 @@ namespace ElasticIdentity.Tests
 		{
             using (var store = new UserStoreFixture<ElasticUser>())
             {
-                var user = new ElasticUser(UserName)
+                var user = new ElasticUser(UserId, UserName)
                 {
                     Email = new ElasticUserEmail
                     {
@@ -123,7 +182,7 @@ namespace ElasticIdentity.Tests
 		{
             using (var store = new UserStoreFixture<ElasticUser>())
             {
-                var user = new ElasticUser(UserName);
+                var user = new ElasticUser(UserId, UserName);
 
                 await store.CreateAsync(user);
 
@@ -139,7 +198,7 @@ namespace ElasticIdentity.Tests
 		{
             using (var store = new UserStoreFixture<ElasticUser>())
             {
-                var user = new ElasticUser(UserName);
+                var user = new ElasticUser(UserId, UserName);
 
                 await store.CreateAsync(user);
 
@@ -177,7 +236,8 @@ namespace ElasticIdentity.Tests
 
             using (var store = new UserStoreFixture<ExtendedUser>(ElasticServerUrl, indexName, true, true))
             {
-                var user = new ExtendedUser { UserName = "elonmusk" };
+                var user = new ExtendedUser(UserId, UserName);
+                
                 user.Roles.UnionWith(new[] { "hello" });
 
                 await store.CreateAsync(user);
@@ -194,9 +254,8 @@ namespace ElasticIdentity.Tests
         {
             using (var store = new UserStoreFixture<ExtendedUser>())
             {
-                await store.CreateAsync(new ExtendedUser
+                await store.CreateAsync(new ExtendedUser("abc123", "abc123")
                 {
-                    UserName = "abc123",
                     Car = new Tesla
                     {
                         LicensePlate = "ABC123",
@@ -204,9 +263,8 @@ namespace ElasticIdentity.Tests
                     }
                 });
 
-                await store.CreateAsync(new ExtendedUser
+                await store.CreateAsync(new ExtendedUser("def456", "def456")
                 {
-                    UserName = "def456",
                     Car = new Koenigsegg
                     {
                         LicensePlate = "ABC123",

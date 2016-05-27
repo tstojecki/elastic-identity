@@ -36,8 +36,7 @@ namespace ElasticIdentity
 {
 	public class ElasticUser : IUser
 	{
-		private string _id;
-	    private long _version;
+		private long _version;
 		private string _userName;
 		private readonly List<ElasticUserLoginInfo> _logins;
 		private readonly HashSet<ElasticClaim> _claims;
@@ -52,18 +51,15 @@ namespace ElasticIdentity
             Email = new ElasticUserEmail();
 		}
 
-		public ElasticUser( string userName )
+		public ElasticUser(string id, string userName)
 			: this()
 		{
+            Id = id;
 			UserName = userName;
 		}
 
 		[JsonIgnore]
-		public virtual string Id
-		{
-			get { return _id ?? (_id = Guid.NewGuid().ToString( "n" )); }
-			set { _id = value; }
-		}
+        public virtual string Id { get; set; }
 
         [JsonIgnore]
         public long Version

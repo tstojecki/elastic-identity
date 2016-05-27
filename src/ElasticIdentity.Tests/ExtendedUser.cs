@@ -69,6 +69,11 @@ namespace ElasticIdentity.Tests
 
     public class ExtendedUser : ElasticUser
     {
+        public ExtendedUser(string id, string username) 
+            : base(id, username)
+        {
+        }
+
         [JsonProperty(TypeNameHandling = TypeNameHandling.Objects)]
         public CarBase Car { get; set; }
     }

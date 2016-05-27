@@ -153,34 +153,45 @@ namespace ElasticIdentity
 
         private async Task CreateOrUpdateAsync(TUser user, bool create)
         {
-            if (user == null) throw new ArgumentNullException(nameof(user));
-            
-            // We need to specify op_type as we are generating the ID (guid) in code.
-            // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html
-            // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#operation-type
-            // On versioning.
-            // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#index-versioning
-
             if (create)
+            {
                 Wrap(await Client.IndexAsync(user, x => x
                   .OpType(OpType.Create)      // Fail if a document with the ID provided already exists.
                   .Consistency(Consistency.Quorum)
                   .Refresh()));
+            }
             else
+            {
                 Wrap(await Client.IndexAsync(user, x => x
                   .OpType(OpType.Index)
-                  .Version(user.Version)    // Be sure the document's version hasn't changed.
+                  .Version(user.Version)
                   .Consistency(Consistency.Quorum)
                   .Refresh()));
+            }
         }
 
         public Task CreateAsync(TUser user)
         {
+            if (user == null)
+            {
+                throw new ArgumentNullException(nameof(user));
+            }
+
             return CreateOrUpdateAsync(user, true);
         }
 
         public Task UpdateAsync(TUser user)
         {
+            if (user == null)
+            {
+                throw new ArgumentNullException(nameof(user));
+            }
+
+            if (string.IsNullOrEmpty(user.Id))
+            {
+                throw new ArgumentNullException("user.Id", "A null or empty User.Id value is not allowed in UpdateAsync");
+            }
+
             return CreateOrUpdateAsync(user, false);
         }
 
