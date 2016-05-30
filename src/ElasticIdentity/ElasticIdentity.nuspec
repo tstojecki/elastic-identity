@@ -4,14 +4,14 @@
 
 	<metadata>
 		<id>ElasticIdentity</id>
-		<version>2.0.2-rc</version>
+		<version>2.0.3-rc</version>
 		<title>Identity Provider for Elasticsearch</title>
 		<authors>bmbsqd, tstojecki</authors>
 		<owners>bmbsqd, tstojecki</owners>
 		<description>Identity Provider for Elasticsearch</description>
 		<licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
 		<projectUrl>https://github.com/tstojecki/elastic-identity</projectUrl>
-		<iconUrl>http://www.gravatar.com/avatar/778137d42770f739df317b3cde5454ed.png?s=128</iconUrl>
+		<iconUrl></iconUrl>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<!--<releaseNotes></releaseNotes>-->
 		<copyright>© Bombsquad Inc 2014, ElasticIdentity 2016</copyright>
