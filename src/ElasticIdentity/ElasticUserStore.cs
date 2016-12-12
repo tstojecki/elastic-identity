@@ -164,16 +164,16 @@ namespace ElasticIdentity
             {
                 Wrap(await Client.IndexAsync(user, x => x
                   .OpType(OpType.Create)
-                  .Consistency(Consistency.Quorum)
-                  .Refresh()));
+                  //.Consistency(Consistency.Quorum)
+                  .Refresh(Refresh.True)));
             }
             else
             {
                 Wrap(await Client.IndexAsync(user, x => x
                   .OpType(OpType.Index)
                   .Version(user.Version)
-                  .Consistency(Consistency.Quorum)
-                  .Refresh()));
+                  //.Consistency(Consistency.Quorum)
+                  .Refresh(Refresh.True)));
             }
         }
 
@@ -201,9 +201,9 @@ namespace ElasticIdentity
             if (user == null) throw new ArgumentNullException(nameof(user));
 
             Wrap(await Client.DeleteAsync(DocumentPath<TUser>.Id(user.Id), d => d
-                .Consistency(Consistency.Quorum)
+                //.Consistency(Consistency.Quorum)
                 .Version(user.Version)
-                .Refresh()));
+                .Refresh(Refresh.True)));
         }
 
         public async Task<TUser> FindByIdAsync(string userId)

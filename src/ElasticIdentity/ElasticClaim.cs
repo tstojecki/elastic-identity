@@ -33,10 +33,10 @@ namespace ElasticIdentity
 {
 	public class ElasticClaim : IEquatable<ElasticClaim>
 	{
-        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [Keyword(IncludeInAll = false )]
         public string Type { get; set; }
 
-        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [Keyword(IncludeInAll = false )]
         public string Value { get; set; }
 
 		public ElasticClaim()

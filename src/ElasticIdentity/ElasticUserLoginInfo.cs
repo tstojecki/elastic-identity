@@ -31,10 +31,10 @@ namespace ElasticIdentity
 {
 	public class ElasticUserLoginInfo
 	{
-        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [Keyword(IncludeInAll = false )]
         public string LoginProvider { get; set; }
 
-        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [Keyword(IncludeInAll = false )]
         public string ProviderKey { get; set; }
 	}
 }
