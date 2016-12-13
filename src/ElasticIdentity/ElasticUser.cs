@@ -68,18 +68,18 @@ namespace ElasticIdentity
             set { _version = value; }
         }
 
-        [String( Index = FieldIndexOption.Analyzed, Analyzer = "lowercaseKeyword" )]
+        [Text(Analyzer = "lowercaseKeyword" )]
         public string UserName
 		{
 			get { return _userName; }
 			set { _userName = value?.ToLowerInvariant(); }
 		}
 
-        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [Keyword(IncludeInAll = false )]
         [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
 		public string PasswordHash { get; set; }
 
-        [String( Index = FieldIndexOption.NotAnalyzed, DocValues = true, IncludeInAll = false )]
+        [Keyword(IncludeInAll = false )]
         [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
 		public string SecurityStamp { get; set; }
 
