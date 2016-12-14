@@ -6,9 +6,15 @@ Why use elastic-identity
 
 Elastic-Identity wires up the storage and repository of ElasticSearch with ASP.NET Identity
 
-
 Revision History
 ==========
+
+- 5.0.1-rc1
+  - Upgrade to ElasticSearch.NET/NEST 5.0.0-rc4
+  - Reconciled Create and Update methods to handle Id and Versioning according to 5.x rules
+
+  - Breaking changes:
+	- Removed ThrowExceptionsForNotFound option on the store, ES client handles 404 with null even when ThrowExceptions in on
 
 - 2.0.2-rc1 & 2.0.3-rc1
   - Better handling of 404 NotFound options. By default return null, can be overwritten with ThrowExceptionsForNotFound ctor setting.
@@ -20,25 +26,25 @@ Revision History
 - 2.0.0-rc1 
   - Bump projects to .NET Framework 4.6.
   - Upgraded:
-     - nUnit 2.6.4 and ASP.NET Identity 2.2.1.
-     - Elasticsearch.Net/NEST 2.0.4.
+	- nUnit 2.6.4 and ASP.NET Identity 2.2.1.
+	- Elasticsearch.Net/NEST 2.0.4.
   - Optimistic concurrency control support using document _version.
   - Add quorum consistency on all operations sans read/get.
   - Align version with Elasticsearch.
 
   - Breaking changes:
-	 - Renamed namespace from Bmbsqd.ElasticIdentity to ElasticIdentity, renamed assemblies and project names
-     - The JSON document representing the user no longer contains the 'id' field in favor of the document's meta value '_id'. The ElasticUser.Id property is still present on the class and will contain the '_id' value. This same principle is used for ElasticUser.Version (via _version).
-	 - Breaking change in constructor; no more type parameter. Rely on the class type instead.
+	- Renamed namespace from Bmbsqd.ElasticIdentity to ElasticIdentity, renamed assemblies and project names
+    - The JSON document representing the user no longer contains the 'id' field in favor of the document's meta value '_id'. The ElasticUser.Id property is still present on the class and will contain the '_id' value. This same principle is used for ElasticUser.Version (via _version).
+	- Breaking change in constructor; no more type parameter. Rely on the class type instead.
 
 - 1.0.0-rc2
   - Fixed version problem with NEST dependency  
 
 - 1.0.0-rc1
   - Added support for additional services: 
-     - IUserTwoFactorStore
-     - IUserEmailStore
-     - IUserPhoneNumberStore
+	- IUserTwoFactorStore
+	- IUserEmailStore
+	- IUserPhoneNumberStore
   - Upgrade to ASP.NET Identity 2.x
   - Upgrade to support Nest 1.x
   - Breaking change in constructor, no more seed parameter, users should override SeedAsync() instead
@@ -93,17 +99,14 @@ public class MyUser : ElasticUser
 new ElasticUserStore<MyUser>(new Uri("http://localhost:9200/"));
 ```
 
-More samples and documentation
-------------------------------
-TBD...
-
 Contributing
 ------------
 
 Yes please
 
-Thanks to [Ry-K](https://github.com/Ry-K) for the 2.0.0 upgrade
-Thanks to [tstojecki](https://github.com/tstojecki) for the NEST-RC1 upgrade
+Thanks to [chandy21](https://github.com/chandy21) for the help with 5.0.0 upgrade
+Thanks to [Ry-K](https://github.com/Ry-K) for the help with 2.0.0 upgrade
+Thanks to [tstojecki](https://github.com/tstojecki) for the help with NEST-RC1 upgrade
 Thanks to [bmbsqd](https://github.com/bmbsqd) for version 1.0.0-rc1
 
 History
