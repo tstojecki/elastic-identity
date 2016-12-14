@@ -358,7 +358,8 @@ namespace ElasticIdentity.Tests
             public UserStoreFixture(string url, string index, bool forceRecreate, bool throwExceptions, bool throwNotFoundExceptions)
                 : base(new ElasticClient(new ConnectionSettings(new Uri(url))
                     .MapDefaultTypeIndices(x => x.Add(typeof(TUser), index))
-                    .ThrowExceptions(throwExceptions)), index, forceRecreate)
+                    .ThrowExceptions(throwExceptions)
+                    .DisableAutomaticProxyDetection(false)), index, forceRecreate)
             {
                 Index = index;
                 ThrowExceptionsForNotFound = throwNotFoundExceptions;

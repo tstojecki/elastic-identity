@@ -158,33 +158,24 @@ namespace ElasticIdentity
         {
         }
 
-        private async Task CreateOrUpdateAsync(TUser user, bool create)
-        {
-            if (create)
-            {
-                Wrap(await Client.IndexAsync(user, x => x
-                  .OpType(OpType.Create)
-                  //.Consistency(Consistency.Quorum)
-                  .Refresh(Refresh.True)));
-            }
-            else
-            {
-                Wrap(await Client.IndexAsync(user, x => x
-                  .OpType(OpType.Index)
-                  .Version(user.Version)
-                  //.Consistency(Consistency.Quorum)
-                  .Refresh(Refresh.True)));
-            }
-        }
-
-        public Task CreateAsync(TUser user)
+        public async Task CreateAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
 
-            return CreateOrUpdateAsync(user, true);
+            if (string.IsNullOrEmpty(user.Id))
+            {
+                await Client.IndexAsync(user, x => x
+                    .Refresh(Refresh.True));
+            }
+            else
+            {
+                await Client.IndexAsync(user, x => x
+                    .OpType(OpType.Create)    
+                    .Refresh(Refresh.True));
+            }
         }
 
-        public Task UpdateAsync(TUser user)
+        public async Task UpdateAsync(TUser user)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
 
@@ -193,7 +184,9 @@ namespace ElasticIdentity
                 throw new ArgumentNullException("user.Id", "A null or empty User.Id value is not allowed in UpdateAsync");
             }
 
-            return CreateOrUpdateAsync(user, false);
+            await Client.IndexAsync(user, x => x
+                .Version(user.Version)
+                .Refresh(Refresh.True));
         }
 
         public async Task DeleteAsync(TUser user)
