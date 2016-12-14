@@ -146,7 +146,7 @@ namespace ElasticIdentity.Tests
 		[Fact]
 		public async Task UserNotFoundShouldReturnNullWhenThrowExceptionsOff()
 		{
-            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, false, false))
+            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, false))
             {
                 var user404 = await With503RetryForIndexRecovery(async () => await store.FindByIdAsync("missing"), 5);
 
@@ -155,9 +155,9 @@ namespace ElasticIdentity.Tests
 		}
 
         [Fact]
-        public async Task UserNotFoundShouldReturnNullWhenThrowExceptionsForNotFoundOffAndThrowExceptionsOn()
+        public async Task UserNotFoundShouldReturnNullWhenThrowExceptionsOn()
         {
-            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, true, false))
+            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, true))
             {
                 var user404 = await With503RetryForIndexRecovery(async () => await store.FindByIdAsync("missing"), 5);
 
@@ -193,28 +193,6 @@ namespace ElasticIdentity.Tests
             }
 
             return null;
-        }
-
-        [Fact]
-        public async Task UserNotFoundShouldThrowWhenThrowExceptionsForNotFoundOn()
-        {
-            using (var store = new UserStoreFixture<ElasticUser>(ElasticServerUrl, "elasticidentity-tests", true, true, true))
-            {
-                bool threwNotFound = false;
-                try
-                {
-                    var user404 = await With503RetryForIndexRecovery(async () => await store.FindByIdAsync("missing"), 5);
-                }
-                catch (ElasticsearchClientException ex)
-                {
-                    if (ex.Response.HttpStatusCode == 404)
-                    {
-                        threwNotFound = true;
-                    }                    
-                }
-
-                Assert.True(threwNotFound);
-            }
         }
 
         [Fact]
@@ -297,7 +275,7 @@ namespace ElasticIdentity.Tests
         {
             var indexName = "custom-index";
 
-            using (var store = new UserStoreFixture<ExtendedUser>(ElasticServerUrl, indexName, true, true, false))
+            using (var store = new UserStoreFixture<ExtendedUser>(ElasticServerUrl, indexName, true, true))
             {
                 var user = new ExtendedUser(UserId, UserName);
                 
@@ -351,18 +329,17 @@ namespace ElasticIdentity.Tests
         class UserStoreFixture<TUser> : ElasticUserStore<TUser> where TUser : ElasticUser
         {
             public UserStoreFixture()
-                : this(ElasticServerUrl, "elasticidentity-tests", true, true, false)
+                : this(ElasticServerUrl, "elasticidentity-tests", true, true)
             {
             }
 
-            public UserStoreFixture(string url, string index, bool forceRecreate, bool throwExceptions, bool throwNotFoundExceptions)
+            public UserStoreFixture(string url, string index, bool forceRecreate, bool throwExceptions)
                 : base(new ElasticClient(new ConnectionSettings(new Uri(url))
                     .MapDefaultTypeIndices(x => x.Add(typeof(TUser), index))
                     .ThrowExceptions(throwExceptions)
                     .DisableAutomaticProxyDetection(false)), index, forceRecreate)
             {
                 Index = index;
-                ThrowExceptionsForNotFound = throwNotFoundExceptions;
             }
 
             public IElasticClient ElasticClient

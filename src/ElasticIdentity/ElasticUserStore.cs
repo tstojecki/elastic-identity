@@ -56,20 +56,12 @@ namespace ElasticIdentity
 
         protected virtual bool IndexCreated { get; set; }
 
-        /// <summary>
-        /// Gets or sets a value indicating whether the exceptions should be thrown for Find methods when user isn't found.
-        /// With the value of false (default) the exceptions will not be thrown regardless of the value of Client.ThrowExceptions. 
-        /// </summary>
-        public virtual bool ThrowExceptionsForNotFound { get; set; }
-
-        public ElasticUserStore(Uri elasticServerUri, string indexName = "users", bool forceRecreate = false, bool throwExceptionsForNotFound = false)
+        public ElasticUserStore(Uri elasticServerUri, string indexName = "users", bool forceRecreate = false)
         {
             if (elasticServerUri == null)
             {
                 throw new ArgumentNullException(nameof(elasticServerUri));
             }
-
-            ThrowExceptionsForNotFound = throwExceptionsForNotFound;
 
             _client = new Lazy<IElasticClient>(() =>
             {
@@ -88,14 +80,12 @@ namespace ElasticIdentity
             });
         }
 
-        public ElasticUserStore(IElasticClient client, string indexName = "users", bool forceRecreate = false, bool throwExceptionsForNotFound = false)
+        public ElasticUserStore(IElasticClient client, string indexName = "users", bool forceRecreate = false)
         {
             if (client == null)
             {
                 throw new ArgumentNullException(nameof(client));
             }
-
-            ThrowExceptionsForNotFound = throwExceptionsForNotFound;
 
             _client = new Lazy<IElasticClient>(() =>
             {
@@ -203,28 +193,23 @@ namespace ElasticIdentity
         {
             if (userId == null) throw new ArgumentNullException(nameof(userId));
 
-            return await RunFindRequestAsync(async () =>
-            {
-                var result = await Client.GetAsync(DocumentPath<TUser>.Id(userId));
+            var result = await Client.GetAsync(DocumentPath<TUser>.Id(userId));
 
-                if (!result.IsValid || !result.Found)
-                    return null;
+            if (!result.IsValid || !result.Found)
+                return null;
 
-                var user = result.Source;
-                user.Id = result.Id;
-                user.Version = result.Version;
+            var user = result.Source;
+            user.Id = result.Id;
+            user.Version = result.Version;
 
-                return user;
-            });
+            return user;
         }
 
         public async Task<TUser> FindByNameAsync(string userName)
         {
             if (string.IsNullOrEmpty(userName)) throw new ArgumentNullException(nameof(userName));
 
-            return await RunFindRequestAsync(async () =>
-            {
-                var result = await Client.SearchAsync<TUser>(s => s
+            var result = await Client.SearchAsync<TUser>(s => s
                     .Version(true)
                     .Query(q => q
                         .Bool(b => b
@@ -233,17 +218,14 @@ namespace ElasticIdentity
                                     .Field(tf => tf.UserName)
                                     .Value(userName.ToLowerInvariant()))))));
 
-                return ProcessSearchResponse(result);
-            });
+            return ProcessSearchResponse(result);
         }
 
         public async Task<TUser> FindByEmailAsync(string email)
         {
             if (email == null) throw new ArgumentNullException(nameof(email));
 
-            return await RunFindRequestAsync(async () =>
-            {
-                var result = Wrap(await Client.SearchAsync<TUser>(s => s
+            var result = Wrap(await Client.SearchAsync<TUser>(s => s
                     .Version(true)
                     .Query(q => q
                         .Bool(b => b
@@ -252,17 +234,14 @@ namespace ElasticIdentity
                                     .Field(tf => tf.Email.Address)
                                     .Value(email.ToLowerInvariant())))))));
 
-                return ProcessSearchResponse(result);
-            });
+            return ProcessSearchResponse(result);
         }
 
         public async Task<TUser> FindAsync(UserLoginInfo login)
         {
             if (login == null) throw new ArgumentNullException(nameof(login));
 
-            return await RunFindRequestAsync(async () =>
-            {
-                var result = Wrap(await Client.SearchAsync<TUser>(s => s
+            var result = Wrap(await Client.SearchAsync<TUser>(s => s
                     .Query(q => q
                         .Bool(b => b
                         .Filter(f =>
@@ -274,28 +253,7 @@ namespace ElasticIdentity
                                 .Field(tf2 => tf2.Logins.First().ProviderKey)
                                 .Value(login.ProviderKey)))))));
 
-                return ProcessSearchResponse(result);
-            });
-        }
-
-        private async Task<TUser> RunFindRequestAsync(Func<Task<TUser>> func)
-        {
-            try
-            {
-                return await func();
-            }
-            catch (ElasticsearchClientException ex)
-            {
-                if (ex.Response.HttpStatusCode == 404)
-                {
-                    if (!ThrowExceptionsForNotFound)
-                    {
-                        return null;
-                    }
-                }
-
-                throw;
-            }
+            return ProcessSearchResponse(result);
         }
 
         private TUser ProcessSearchResponse(ISearchResponse<TUser> result)
