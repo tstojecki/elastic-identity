@@ -96,17 +96,17 @@ namespace ElasticIdentity
 
         protected virtual void EnsureIndex(IElasticClient connection, string indexName, bool forceCreate)
         {
-            var exists = Wrap(connection.IndexExists(new IndexExistsRequest(indexName))).Exists;
+            var exists = connection.IndexExists(new IndexExistsRequest(indexName)).Exists;
 
             if (exists && forceCreate)
             {
-                Wrap(connection.DeleteIndex(new DeleteIndexRequest(indexName)));
+                connection.DeleteIndex(new DeleteIndexRequest(indexName));
                 exists = false;
             }
 
             if (!exists)
             {
-                var response = Wrap(connection.CreateIndex(indexName, DescribeIndex));
+                var response = connection.CreateIndex(indexName, DescribeIndex);
 
                 IndexCreated = AssertResponseSuccess(response);
             }
@@ -183,10 +183,9 @@ namespace ElasticIdentity
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
 
-            Wrap(await Client.DeleteAsync(DocumentPath<TUser>.Id(user.Id), d => d
-                //.Consistency(Consistency.Quorum)
+            await Client.DeleteAsync(DocumentPath<TUser>.Id(user.Id), d => d
                 .Version(user.Version)
-                .Refresh(Refresh.True)));
+                .Refresh(Refresh.True));
         }
 
         public async Task<TUser> FindByIdAsync(string userId)
@@ -225,14 +224,14 @@ namespace ElasticIdentity
         {
             if (email == null) throw new ArgumentNullException(nameof(email));
 
-            var result = Wrap(await Client.SearchAsync<TUser>(s => s
+            var result = await Client.SearchAsync<TUser>(s => s
                     .Version(true)
                     .Query(q => q
                         .Bool(b => b
                             .Filter(f => f
                                 .Term(t => t
                                     .Field(tf => tf.Email.Address)
-                                    .Value(email.ToLowerInvariant())))))));
+                                    .Value(email.ToLowerInvariant()))))));
 
             return ProcessSearchResponse(result);
         }
@@ -241,7 +240,7 @@ namespace ElasticIdentity
         {
             if (login == null) throw new ArgumentNullException(nameof(login));
 
-            var result = Wrap(await Client.SearchAsync<TUser>(s => s
+            var result = await Client.SearchAsync<TUser>(s => s
                     .Query(q => q
                         .Bool(b => b
                         .Filter(f =>
@@ -251,7 +250,7 @@ namespace ElasticIdentity
                             &&
                             f.Term(t2 => t2
                                 .Field(tf2 => tf2.Logins.First().ProviderKey)
-                                .Value(login.ProviderKey)))))));
+                                .Value(login.ProviderKey))))));
 
             return ProcessSearchResponse(result);
         }
@@ -408,7 +407,7 @@ namespace ElasticIdentity
             // ToDo: Use scroll -> https://goo.gl/E86ezB
             // Due to the nature Elasticsearch allocates memory on the JVM heap for use in storing the results
             // you should not set the size to a very large value. Relying on the default size of 10 for now.
-            var result = Wrap(await Client.SearchAsync<TUser>(search => search.MatchAll()));
+            var result = await Client.SearchAsync<TUser>(search => search.MatchAll());
             return result.Documents;
         }
 
@@ -568,20 +567,5 @@ namespace ElasticIdentity
     {
         protected static readonly Task DoneTask = Task.FromResult(true);
         protected const int DefaultSizeForAll = 1000 * 1000;
-
-        public event EventHandler<ElasticUserStoreTraceEventArgs> Trace;
-
-        protected virtual void OnTrace(IApiCallDetails callDetails)
-        {
-            var trace = Trace;
-            trace?.Invoke(this, new ElasticUserStoreTraceEventArgs(callDetails.DebugInformation));
-        }
-
-        protected T Wrap<T>(T result) where T : IResponse
-        {
-            var c = result.ApiCall;
-            OnTrace(c);
-            return result;
-        }
     }
 }
