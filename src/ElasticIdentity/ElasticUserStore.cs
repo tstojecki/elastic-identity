@@ -67,6 +67,7 @@ namespace ElasticIdentity
             {
                 // most basic client settings, for everything else use the constructor that takes IElastiClient
                 var settings = new ConnectionSettings(elasticServerUri)
+                    .ThrowExceptions()
                     .MapDefaultTypeIndices(x => x.Add(typeof(TUser), indexName));
 
                 var client = new ElasticClient(settings);
@@ -155,13 +156,13 @@ namespace ElasticIdentity
             if (string.IsNullOrEmpty(user.Id))
             {
                 await Client.IndexAsync(user, x => x
-                    .Refresh(Refresh.True));
+                   .Refresh(Refresh.True));
             }
             else
             {
                 await Client.IndexAsync(user, x => x
-                    .OpType(OpType.Create)    
-                    .Refresh(Refresh.True));
+                   .OpType(OpType.Create)
+                   .Refresh(Refresh.True));
             }
         }
 
