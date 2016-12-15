@@ -4,7 +4,7 @@
 
 	<metadata>
 		<id>ElasticIdentity</id>
-		<version>5.0.0-rc3</version>
+		<version>5.0.0-rc4</version>
 		<title>Identity Provider for Elasticsearch</title>
 		<authors>bmbsqd, tstojecki</authors>
 		<owners>tstojecki</owners>

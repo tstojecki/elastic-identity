@@ -9,7 +9,7 @@ Elastic-Identity wires up the storage and repository of ElasticSearch with ASP.N
 Revision History
 ==========
 
-- 5.0.0-rc3
+- 5.0.0-rc4
   - Upgrade to ElasticSearch.NET/NEST 5.0.0
   - Reconciled Create and Update methods to handle Id and Versioning according to 5.x rules
 
