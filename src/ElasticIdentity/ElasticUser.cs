@@ -27,7 +27,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using Microsoft.AspNet.Identity;
 using Nest;
 using Newtonsoft.Json;
@@ -64,61 +63,54 @@ namespace ElasticIdentity
         [JsonIgnore]
         public long Version
         {
-            get { return _version.Equals( 0 ) ? _version = 1 : _version; }
+            get { return _version.Equals(0) ? _version = 1 : _version; }
             set { _version = value; }
         }
 
-        [Text(Analyzer = "lowercaseKeyword" )]
+        [JsonIgnore]
+        public string EmailAddress => Email?.Address;
+
+        [Keyword]
         public string UserName
 		{
 			get { return _userName; }
 			set { _userName = value?.ToLowerInvariant(); }
 		}
 
-        [Keyword(IncludeInAll = false )]
-        [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+        [Keyword]
 		public string PasswordHash { get; set; }
 
-        [Keyword(IncludeInAll = false )]
-        [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+        [Keyword]
 		public string SecurityStamp { get; set; }
 
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+		[Object]
 		public List<ElasticUserLoginInfo> Logins => _logins;
 
-	    [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+	    [Nested]
 		public ISet<ElasticClaim> Claims => _claims;
 
-	    [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+	    [Keyword]
 		public ISet<string> Roles => _roles;
 
-	    [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+	    [Object]
 		public ElasticUserEmail Email { get; set; }
 
-		[JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
+		[Object]
 		public ElasticUserPhone Phone { get; set; }
 
-        /// <summary>
-        ///     Convenience property
-        /// </summary>
-        [JsonIgnore]
-		public string EmailAddress => Email?.Address;
-
-	    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        [Date]
         public DateTimeOffset LockoutEndDate { get; set; }
 
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        [Number(NumberType.Integer)]
         public int AccessFailedCount { get; set; }
 
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        [Boolean]
         public bool Enabled { get; set; }
 
-        [Boolean( DocValues = true, NullValue = false )]
-        [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
-		[DefaultValue( false )]
+        [Boolean]
 		public bool TwoFactorAuthenticationEnabled { get; set; }
 
-		public override string ToString()
+        public override string ToString()
 		{
 			return UserName;
 		}
