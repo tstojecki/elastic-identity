@@ -4,7 +4,7 @@
 
 	<metadata>
 		<id>ElasticIdentity</id>
-		<version>5.0.2-rc</version>
+		<version>5.0.0-rc3</version>
 		<title>Identity Provider for Elasticsearch</title>
 		<authors>bmbsqd, tstojecki</authors>
 		<owners>tstojecki</owners>
@@ -21,8 +21,8 @@
 			<group>
 				<dependency id="Microsoft.AspNet.Identity.Core" version="2.2.1" />
 				<dependency id="Newtonsoft.Json" version="9.0.1" />
-				<dependency id="Elasticsearch.Net" version="5.0.0-rc4" />
-				<dependency id="NEST" version="5.0.0-rc4" />
+				<dependency id="Elasticsearch.Net" version="5.0.0" />
+				<dependency id="NEST" version="5.0.0" />
 			</group>
 		</dependencies>
 	</metadata>

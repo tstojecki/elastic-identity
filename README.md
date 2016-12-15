@@ -9,11 +9,12 @@ Elastic-Identity wires up the storage and repository of ElasticSearch with ASP.N
 Revision History
 ==========
 
-- 5.0.1-rc1
-  - Upgrade to ElasticSearch.NET/NEST 5.0.0-rc4
+- 5.0.0-rc3
+  - Upgrade to ElasticSearch.NET/NEST 5.0.0
   - Reconciled Create and Update methods to handle Id and Versioning according to 5.x rules
 
   - Breaking changes:
+    - Updated mappings to use 5.0 property annotations
 	- Removed ThrowExceptionsForNotFound option on the store, ES client handles 404 with null even when ThrowExceptions in on
 
 - 2.0.2-rc1 & 2.0.3-rc1
