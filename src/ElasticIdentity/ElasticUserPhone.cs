@@ -4,7 +4,7 @@ namespace ElasticIdentity
 {
 	public class ElasticUserPhone : ElasticUserConfirmed
 	{
-        [Keyword(DocValues = true, IncludeInAll = false )]
+        [Keyword]
         public string Number { get; set; }
 	}
 }

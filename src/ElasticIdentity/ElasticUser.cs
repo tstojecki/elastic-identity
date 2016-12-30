@@ -35,17 +35,17 @@ namespace ElasticIdentity
 {
 	public class ElasticUser : IUser
 	{
-		private long _version;
-		private string _userName;
-		private readonly List<ElasticUserLoginInfo> _logins;
-		private readonly HashSet<ElasticClaim> _claims;
-		private readonly HashSet<string> _roles;
+		private long version;
+		private string userName;
+		private readonly List<ElasticUserLoginInfo> logins;
+		private readonly HashSet<ElasticClaim> claims;
+		private readonly HashSet<string> roles;
 
 		public ElasticUser()
 		{
-			_logins = new List<ElasticUserLoginInfo>();
-			_claims = new HashSet<ElasticClaim>();
-			_roles = new HashSet<string>();
+			logins = new List<ElasticUserLoginInfo>();
+			claims = new HashSet<ElasticClaim>();
+			roles = new HashSet<string>();
 
             Email = new ElasticUserEmail();
 		}
@@ -63,8 +63,8 @@ namespace ElasticIdentity
         [JsonIgnore]
         public long Version
         {
-            get { return _version.Equals(0) ? _version = 1 : _version; }
-            set { _version = value; }
+            get { return version.Equals(0) ? version = 1 : version; }
+            set { version = value; }
         }
 
         [JsonIgnore]
@@ -73,8 +73,8 @@ namespace ElasticIdentity
         [Keyword]
         public string UserName
 		{
-			get { return _userName; }
-			set { _userName = value?.ToLowerInvariant(); }
+			get { return userName; }
+			set { userName = value?.ToLowerInvariant(); }
 		}
 
         [Keyword]
@@ -84,13 +84,13 @@ namespace ElasticIdentity
 		public string SecurityStamp { get; set; }
 
 		[Object]
-		public List<ElasticUserLoginInfo> Logins => _logins;
+		public List<ElasticUserLoginInfo> Logins => logins;
 
 	    [Nested]
-		public ISet<ElasticClaim> Claims => _claims;
+		public ISet<ElasticClaim> Claims => claims;
 
 	    [Keyword]
-		public ISet<string> Roles => _roles;
+		public ISet<string> Roles => roles;
 
 	    [Object]
 		public ElasticUserEmail Email { get; set; }

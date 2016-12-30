@@ -115,13 +115,7 @@ namespace ElasticIdentity
 
         public static ICreateIndexRequest DescribeIndex(CreateIndexDescriptor createIndexDescriptor)
         {
-            return createIndexDescriptor.Settings(s => s
-                .Analysis(a => a
-                    .Analyzers(aa => aa
-                        .Custom("lowercaseKeyword", c => c
-                        .Tokenizer("keyword")
-                        .Filters("standard", "lowercase")))))
-                .Mappings(m => m
+            return createIndexDescriptor.Mappings(m => m
                     .Map<TUser>(mm => mm
                         .AutoMap()
                         .AllField(af => af

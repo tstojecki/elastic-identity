@@ -1,14 +1,10 @@
-﻿using System.ComponentModel;
-using Nest;
-using Newtonsoft.Json;
+﻿using Nest;
 
 namespace ElasticIdentity
 {
 	public class ElasticUserConfirmed
 	{
-        [Boolean( DocValues = true, NullValue = false )]
-        [JsonProperty( DefaultValueHandling = DefaultValueHandling.Ignore )]
-		[DefaultValue( false )]
+        [Boolean]
 		public bool IsConfirmed { get; set; }
 	}
 }

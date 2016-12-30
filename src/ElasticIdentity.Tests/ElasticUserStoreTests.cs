@@ -196,8 +196,8 @@ namespace ElasticIdentity.Tests
         }
 
         [Fact]
-		public async Task FindByEmail()
-		{
+        public async Task FindByName()
+        {
             using (var store = new UserStoreFixture<ElasticUser>())
             {
                 var user = new ElasticUser(UserId, UserName)
@@ -211,7 +211,42 @@ namespace ElasticIdentity.Tests
 
                 await store.CreateAsync(user);
 
+                var elasticUser = await store.FindByNameAsync(UserName);
+
+                Assert.NotNull(elasticUser);
+                Assert.Equal(user.UserName, elasticUser.UserName);
+
+                // should ignore case
+                elasticUser = await store.FindByNameAsync(UserName.ToUpper());
+
+                Assert.NotNull(elasticUser);
+                Assert.Equal(user.UserName, elasticUser.UserName);
+            }
+        }
+
+        [Fact]
+		public async Task FindByEmail()
+		{
+            using (var store = new UserStoreFixture<ElasticUser>())
+            {
+                var user = new ElasticUser(UserId, UserName)
+                {
+                    Email = new ElasticUserEmail
+                    {
+                        Address = "hello@WORLD.com",
+                        IsConfirmed = false
+                    }
+                };
+
+                await store.CreateAsync(user);
+
                 var elasticUser = await store.FindByEmailAsync(user.Email.Address);
+
+                Assert.NotNull(elasticUser);
+                Assert.Equal(user.EmailAddress, elasticUser.EmailAddress);
+
+                // should ignore case
+                elasticUser = await store.FindByEmailAsync(user.Email.Address.ToUpper());
 
                 Assert.NotNull(elasticUser);
                 Assert.Equal(user.EmailAddress, elasticUser.EmailAddress);

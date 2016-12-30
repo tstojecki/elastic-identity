@@ -4,7 +4,13 @@ namespace ElasticIdentity
 {
 	public class ElasticUserEmail : ElasticUserConfirmed
 	{
-        [Keyword(IncludeInAll = false )]
-        public string Address { get; set; }
+        private string address;
+
+        [Keyword]
+        public string Address
+        {
+            get { return address; }
+            set { address = value?.ToLowerInvariant(); }
+        }
 	}
 }
