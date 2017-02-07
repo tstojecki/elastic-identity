@@ -9,7 +9,7 @@ Elastic-Identity wires up the storage and repository of ElasticSearch with ASP.N
 Revision History
 ==========
 
-- 5.0.0-rc6
+- 5.0.0-rc7
   - Breaking changes:
 	- Changed constructors and moved ensure index out into a separate method
 
