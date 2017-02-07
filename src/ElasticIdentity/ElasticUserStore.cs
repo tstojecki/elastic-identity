@@ -4,6 +4,7 @@
 	The MIT License (MIT)
 
 	Copyright (c) 2013 Bombsquad Inc
+    Copyright (c) 2016 ElasticIdentity
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy of
 	this software and associated documentation files (the "Software"), to deal in
@@ -50,70 +51,61 @@ namespace ElasticIdentity
         IUserLockoutStore<TUser, string>
         where TUser : ElasticUser
     {
-        private readonly Lazy<IElasticClient> _client;
-
-        protected virtual IElasticClient Client => _client.Value;
-
-        protected virtual bool IndexCreated { get; set; }
-
-        public ElasticUserStore(Uri elasticServerUri, string indexName = "users", bool forceRecreate = false)
-        {
-            if (elasticServerUri == null)
-            {
-                throw new ArgumentNullException(nameof(elasticServerUri));
-            }
-
-            _client = new Lazy<IElasticClient>(() =>
-            {
-                // most basic client settings, for everything else use the constructor that takes IElastiClient
-                var settings = new ConnectionSettings(elasticServerUri)
-                    .ThrowExceptions()
-                    .MapDefaultTypeIndices(x => x.Add(typeof(TUser), indexName));
-
-                var client = new ElasticClient(settings);
-
-                // TODO: move the setup logic out of the store, the store should not be concerned with db setup
-                // see other providers, e.g. entity framework, mongo for reference
-                // instead provide a class that will facilitate index setup as part of the package
-                // this will clean up this code quite a bit and keep the tests easier to manage from the standpoint of setup and teardown                
-                EnsureIndex(client, indexName, forceRecreate);
-                return client;
-            });
-        }
-
-        public ElasticUserStore(IElasticClient client, string indexName = "users", bool forceRecreate = false)
+        public ElasticUserStore(IElasticClient client)
         {
             if (client == null)
             {
                 throw new ArgumentNullException(nameof(client));
             }
 
-            _client = new Lazy<IElasticClient>(() =>
+            string index;
+            client.ConnectionSettings.DefaultIndices.TryGetValue(typeof(TUser), out index);
+            if (string.IsNullOrEmpty(index))
             {
-                EnsureIndex(client, indexName, forceRecreate);
-                return client;
-            });
+                index = client.ConnectionSettings.DefaultIndex;
+            }
+
+            if (string.IsNullOrEmpty(index))
+            {
+                throw new ArgumentNullException("You must specify default index on IElasticClient either through MapDefaultTypeIndicies or DefaultIndex");
+            }
+
+            Client = client;
+            Index = index;
         }
 
-        protected virtual void EnsureIndex(IElasticClient connection, string indexName, bool forceCreate)
+        public ElasticUserStore(Uri elasticServerUri, string indexName = "users")
+            : this(new ElasticClient(new ConnectionSettings(elasticServerUri)
+                .ThrowExceptions()
+                .MapDefaultTypeIndices(x => x.Add(typeof(TUser), indexName))))
         {
-            var exists = connection.IndexExists(new IndexExistsRequest(indexName)).Exists;
+        }
+
+        public IElasticClient Client { get; private set; }
+
+        public string Index { get; private set; }
+
+        public virtual bool EnsureIndex(bool forceCreate = false)
+        {
+            var exists = Client.IndexExists(new IndexExistsRequest(Index)).Exists;
 
             if (exists && forceCreate)
             {
-                connection.DeleteIndex(new DeleteIndexRequest(indexName));
+                Client.DeleteIndex(new DeleteIndexRequest(Index));
                 exists = false;
             }
 
             if (!exists)
             {
-                var response = connection.CreateIndex(indexName, DescribeIndex);
+                var response = Client.CreateIndex(Index, DescribeIndex);
 
-                IndexCreated = AssertResponseSuccess(response);
+                return AssertResponseSuccess(response);
             }
+
+            return false;
         }
 
-        public static ICreateIndexRequest DescribeIndex(CreateIndexDescriptor createIndexDescriptor)
+        public virtual ICreateIndexRequest DescribeIndex(CreateIndexDescriptor createIndexDescriptor)
         {
             return createIndexDescriptor.Mappings(m => m
                     .Map<TUser>(mm => mm

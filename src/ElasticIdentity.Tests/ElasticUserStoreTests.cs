@@ -4,6 +4,7 @@
 // 	The MIT License (MIT)
 // 
 // 	Copyright (c) 2013 Bombsquad Inc
+//  Copyright (c) 2016 ElasticIdentity
 // 
 // 	Permission is hereby granted, free of charge, to any person obtaining a copy of
 // 	this software and associated documentation files (the "Software"), to deal in
@@ -318,7 +319,7 @@ namespace ElasticIdentity.Tests
 
                 await store.CreateAsync(user);
 
-                var response = store.ElasticClient.Get<ExtendedUser>(new GetRequest(indexName, TypeName.From<ExtendedUser>(), user.Id));
+                var response = store.Client.Get<ExtendedUser>(new GetRequest(indexName, TypeName.From<ExtendedUser>(), user.Id));
 
                 Assert.NotNull(response.Source);
                 Assert.Equal(response.Source.UserName, user.UserName);
@@ -328,7 +329,7 @@ namespace ElasticIdentity.Tests
         [Fact]
         public async Task UserWithExtendedProperties()
         {
-            using (var store = new UserStoreFixture<ExtendedUser>())
+            using (var store = new ExtendedUserStoreFixture())
             {
                 await store.CreateAsync(new ExtendedUser("abc123", "abc123")
                 {
@@ -363,37 +364,48 @@ namespace ElasticIdentity.Tests
 
         class UserStoreFixture<TUser> : ElasticUserStore<TUser> where TUser : ElasticUser
         {
+            private bool indexCreated = false;
+
             public UserStoreFixture()
                 : this(ElasticServerUrl, "elasticidentity-tests", true, true)
             {
             }
 
-            public UserStoreFixture(string url, string index, bool forceRecreate, bool throwExceptions)
+            public UserStoreFixture(string url, string index, bool forceIndexCreate, bool throwExceptions)
                 : base(new ElasticClient(new ConnectionSettings(new Uri(url))
                     .MapDefaultTypeIndices(x => x.Add(typeof(TUser), index))
                     .ThrowExceptions(throwExceptions)
-                    .DisableAutomaticProxyDetection(false)), index, forceRecreate)
+                    .DisableAutomaticProxyDetection(false)))
             {
-                Index = index;
+                indexCreated = EnsureIndex(forceIndexCreate);
             }
-
-            public IElasticClient ElasticClient
-            {
-                get
-                {
-                    return Client;
-                }
-            }
-
-            public string Index { get; private set; }
 
             public override void Dispose()
             {
-                if (Client != null && IndexCreated)
+                if (Client != null && indexCreated)
                 {
                     Client.DeleteIndex(new DeleteIndexRequest(Indices.Index(Index)));
                 }
             }
         }
-	}
+
+        class ExtendedUserStoreFixture : UserStoreFixture<ExtendedUser>
+        {
+            public ExtendedUserStoreFixture()
+            {
+
+            }
+
+            public override ICreateIndexRequest DescribeIndex(CreateIndexDescriptor createIndexDescriptor)
+            {
+                return createIndexDescriptor.Mappings(m => m
+                    .Map<ExtendedUser>(mm => mm
+                        .AutoMap()
+                        .Dynamic(true)
+                        .AllField(af => af
+                            .Enabled(false))));
+            }
+        }
+
+    }
 }

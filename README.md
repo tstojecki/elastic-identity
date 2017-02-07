@@ -9,6 +9,10 @@ Elastic-Identity wires up the storage and repository of ElasticSearch with ASP.N
 Revision History
 ==========
 
+- 5.0.0-rc6
+  - Breaking changes:
+	- Changed constructors and moved ensure index out into a separate method
+
 - 5.0.0-rc4
   - Upgrade to ElasticSearch.NET/NEST 5.0.0
   - Reconciled Create and Update methods to handle Id and Versioning according to 5.x rules
@@ -72,11 +76,12 @@ new ElasticUserStore<ElasticUser>(elasticClient);
 
 Ensure index
 -------------------------------------------------
-Elastic identity will check if the index exists and create it if it doesn't. 
-You can also specify forceRecreate to true in the ctor to force delete of the index if it exists.
+Call EnsureIndex() to check if the index exists and create it if it doesn't. 
+You can force the index to be recreated through the forceCreate parameter.
 
 ```csharp
-new ElasticUserStore<ElasticUser>(elasticClient, "users-index", true);
+var store = new ElasticUserStore<ElasticUser>(elasticClient);
+store.EnsureIndex();
 ```
 
 Extend user

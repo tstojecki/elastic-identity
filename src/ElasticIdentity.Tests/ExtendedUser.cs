@@ -4,6 +4,7 @@
 // 	The MIT License (MIT)
 // 
 // 	Copyright (c) 2013 Bombsquad Inc
+// 	Copyright (c) 2016 ElasticIdentity
 // 
 // 	Permission is hereby granted, free of charge, to any person obtaining a copy of
 // 	this software and associated documentation files (the "Software"), to deal in
@@ -27,16 +28,19 @@
 
 using System;
 using Newtonsoft.Json;
+using Nest;
 
 namespace ElasticIdentity.Tests
 {
     public abstract class CarBase
     {
+        [Keyword]
         public string LicensePlate { get; set; }
     }
 
     public abstract class CarBase<TModel> : CarBase where TModel : struct, IConvertible
     {
+        [Keyword]
         public TModel Model { get; set; }
     }
 
@@ -74,6 +78,7 @@ namespace ElasticIdentity.Tests
         {
         }
 
+        [Object]
         [JsonProperty(TypeNameHandling = TypeNameHandling.Objects)]
         public CarBase Car { get; set; }
     }
