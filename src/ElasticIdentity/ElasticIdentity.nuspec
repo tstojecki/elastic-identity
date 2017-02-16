@@ -4,7 +4,7 @@
 
 	<metadata>
 		<id>ElasticIdentity</id>
-		<version>5.0.0-rc7</version>
+		<version>5.0.0</version>
 		<title>Identity Provider for Elasticsearch</title>
 		<authors>bmbsqd, tstojecki</authors>
 		<owners>tstojecki</owners>
@@ -14,7 +14,7 @@
 		<!--<iconUrl></iconUrl>-->
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<!--<releaseNotes></releaseNotes>-->
-		<copyright>© Bombsquad Inc 2014, ElasticIdentity 2016</copyright>
+		<copyright>© Bombsquad Inc 2014, © ElasticIdentity 2016</copyright>
 		<tags>identity elasticsearch elastic search</tags>
 		<!--<references></references>-->
 		<dependencies>
