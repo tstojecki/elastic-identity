@@ -9,6 +9,9 @@ Elastic-Identity wires up the storage and repository of ElasticSearch with ASP.N
 Versions
 ==========
 
+- 5.2.0
+	- ElasticSearch.Net/NEST 5.2.0
+
 - 5.0.0
 	- ElasticSearch.Net/NEST 5.0.0
 
